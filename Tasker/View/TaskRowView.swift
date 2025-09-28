@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TaskRowView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
-    let task: Task
+    let task: TodoTask
 
     // State for inline editing
     @State private var isEditing = false

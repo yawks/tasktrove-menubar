@@ -14,7 +14,7 @@ class TaskListViewModel: ObservableObject {
 
     // MARK: - Published Properties
 
-    @Published private(set) var allTasks: [Task] = []
+    @Published private(set) var allTasks: [TodoTask] = []
     @Published private(set) var allProjects: [Project] = []
     @Published private(set) var allLabels: [Label] = []
 
@@ -28,7 +28,7 @@ class TaskListViewModel: ObservableObject {
 
     // MARK: - Computed Properties
 
-    var filteredTasks: [Task] {
+    var filteredTasks: [TodoTask] {
         var tasks = filterTasksByDueDate(allTasks)
         tasks = filterTasksByProject(tasks)
         tasks = filterTasksByLabels(tasks)
@@ -50,7 +50,7 @@ class TaskListViewModel: ObservableObject {
 
     private let networkService: NetworkServiceProtocol
     private var cancellables = Set<AnyCancellable>()
-    private let updateSubject = PassthroughSubject<Task, Never>()
+    private let updateSubject = PassthroughSubject<TodoTask, Never>()
     private var dirtyTaskIDs = Set<UUID>()
 
     // MARK: - Initializer
@@ -68,7 +68,7 @@ class TaskListViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        Swift.Task {
+        Task {
             do {
                 let response = try await networkService.fetchTasks()
 
@@ -92,7 +92,7 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
-    func updateTask(_ task: Task) {
+    func updateTask(_ task: TodoTask) {
         if let index = allTasks.firstIndex(where: { $0.id == task.id }) {
             allTasks[index] = task
             dirtyTaskIDs.insert(task.id)
@@ -100,13 +100,13 @@ class TaskListViewModel: ObservableObject {
         updateSubject.send(task)
     }
 
-    func toggleTaskCompletion(for task: Task) {
+    func toggleTaskCompletion(for task: TodoTask) {
         var mutatedTask = task
         mutatedTask.completed.toggle()
         updateTask(mutatedTask)
     }
 
-    func toggleSubtaskCompletion(for subtask: Subtask, in parentTask: Task) {
+    func toggleSubtaskCompletion(for subtask: TodoSubtask, in parentTask: TodoTask) {
         guard let parentTaskIndex = allTasks.firstIndex(where: { $0.id == parentTask.id }) else { return }
         guard let subtaskIndex = allTasks[parentTaskIndex].subtasks.firstIndex(where: { $0.id == subtask.id }) else { return }
 
@@ -129,12 +129,12 @@ class TaskListViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func sendUpdate(tasks: [Task]) {
+    private func sendUpdate(tasks: [TodoTask]) {
         guard !tasks.isEmpty else { return }
 
         let taskIDsToUpdate = tasks.map { $0.id }
 
-        Swift.Task {
+        Task {
             do {
                 try await networkService.updateTasks(tasks)
                 print("Successfully updated \(tasks.count) tasks.")
@@ -147,7 +147,7 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
-    private func filterTasksByDueDate(_ tasks: [Task]) -> [Task] {
+    private func filterTasksByDueDate(_ tasks: [TodoTask]) -> [TodoTask] {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
 
@@ -157,14 +157,14 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
-    private func filterTasksByProject(_ tasks: [Task]) -> [Task] {
+    private func filterTasksByProject(_ tasks: [TodoTask]) -> [TodoTask] {
         guard let projectID = selectedProjectID else {
             return tasks
         }
         return tasks.filter { $0.projectId == projectID }
     }
 
-    private func filterTasksByLabels(_ tasks: [Task]) -> [Task] {
+    private func filterTasksByLabels(_ tasks: [TodoTask]) -> [TodoTask] {
         guard !selectedLabelIDs.isEmpty else {
             return tasks
         }
@@ -176,16 +176,16 @@ class TaskListViewModel: ObservableObject {
 
     // MARK: - Data Resolution Methods
 
-    func project(for task: Task) -> Project? {
+    func project(for task: TodoTask) -> Project? {
         return allProjects.first { $0.id == task.projectId }
     }
 
-    func section(for task: Task) -> Section? {
+    func section(for task: TodoTask) -> Section? {
         guard let project = project(for: task) else { return nil }
         return project.sections.first { $0.id == task.sectionId }
     }
 
-    func labels(for task: Task) -> [Label] {
+    func labels(for task: TodoTask) -> [Label] {
         let taskLabelSet = Set(task.labels)
         return allLabels.filter { taskLabelSet.contains($0.id) }
     }

@@ -1,6 +1,6 @@
 import Foundation
 
-struct Task: Codable, Identifiable {
+struct TodoTask: Codable, Identifiable {
     let id: UUID
     var title: String
     var description: String
@@ -10,18 +10,15 @@ struct Task: Codable, Identifiable {
     var projectId: UUID
     var sectionId: UUID
     var labels: [UUID]
-    var subtasks: [Subtask]
+    var subtasks: [TodoSubtask]
     let comments: [String]
     let attachments: [String]
     let createdAt: Date
     var status: String
     let recurringMode: String
-
-    // Custom coding keys might be needed if the API payload for PATCH is different,
-    // but for now, we assume it accepts the full object.
 }
 
-struct Subtask: Codable, Identifiable {
+struct TodoSubtask: Codable, Identifiable {
     let id: UUID
     var title: String
     var completed: Bool

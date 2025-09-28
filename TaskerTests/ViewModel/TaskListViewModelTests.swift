@@ -55,7 +55,7 @@ class TaskListViewModelTests: XCTestCase {
         let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
 
         // Create a base task to avoid boilerplate
-        let baseTask = Task(
+        let baseTask = TodoTask(
             id: UUID(), title: "Test", description: "", completed: false, priority: 1,
             dueDate: Date(), projectId: UUID(), sectionId: UUID(), labels: [],
             subtasks: [], comments: [], attachments: [], createdAt: Date(),

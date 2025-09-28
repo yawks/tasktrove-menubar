@@ -1,7 +1,7 @@
 import Foundation
 
 struct APIResponse: Codable {
-    let tasks: [Task]
+    let tasks: [TodoTask]
     let projects: [Project]
     let labels: [Label]
     let projectGroups: ProjectGroup

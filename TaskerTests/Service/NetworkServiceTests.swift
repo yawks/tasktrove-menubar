@@ -28,7 +28,7 @@ class NetworkServiceTests: XCTestCase {
 
         // 2. Create a dummy task to "update"
         // We can create a lightweight task since the mock doesn't inspect the data.
-        let dummyTask = Task(
+        let dummyTask = TodoTask(
             id: UUID(), title: "Test", description: "", completed: false, priority: 1,
             dueDate: Date(), projectId: UUID(), sectionId: UUID(), labels: [],
             subtasks: [], comments: [], attachments: [], createdAt: Date(),

@@ -4,8 +4,8 @@ struct SubtaskRowView: View {
     // Using a Binding allows the view to modify the subtask directly.
     // This is suitable for simple cases, but the change must be propagated
     // up to the ViewModel to trigger a network request.
-    let subtask: Subtask
-    let task: Task // The parent task is needed to trigger the update
+    let subtask: TodoSubtask
+    let task: TodoTask // The parent task is needed to trigger the update
 
     // We get the view model from the environment
     @EnvironmentObject var viewModel: TaskListViewModel

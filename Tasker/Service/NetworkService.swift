@@ -66,7 +66,7 @@ class NetworkService: NetworkServiceProtocol {
         return try decoder.decode(APIResponse.self, from: data)
     }
 
-    func updateTasks(_ tasks: [Task]) async throws {
+    func updateTasks(_ tasks: [TodoTask]) async throws {
         let url = baseURL.appendingPathComponent("tasks")
         var request = createAuthenticatedRequest(url: url, method: "PATCH")
 
