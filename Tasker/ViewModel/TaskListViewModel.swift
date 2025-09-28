@@ -68,7 +68,7 @@ class TaskListViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
 
-        Task {
+        Swift.Task {
             do {
                 let response = try await networkService.fetchTasks()
 
@@ -134,7 +134,7 @@ class TaskListViewModel: ObservableObject {
 
         let taskIDsToUpdate = tasks.map { $0.id }
 
-        Task {
+        Swift.Task {
             do {
                 try await networkService.updateTasks(tasks)
                 print("Successfully updated \(tasks.count) tasks.")
