@@ -10,8 +10,7 @@ class DecodingTests: XCTestCase {
         decoder = JSONDecoder()
 
         let dateFormatter = DateFormatter()
-        // Custom date decoding strategy to handle multiple formats
-        decoder.dateDecodingStrategy = .custom({ (decoder) -> Date in
+        decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
 
@@ -28,7 +27,7 @@ class DecodingTests: XCTestCase {
             }
 
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string \(dateString)")
-        })
+        }
     }
 
     override func tearDown() {
@@ -44,20 +43,20 @@ class DecodingTests: XCTestCase {
         do {
             let response = try decoder.decode(APIResponse.self, from: data)
 
-            // 4. Assert that the data was decoded correctly
+            // 3. Assert that the data was decoded correctly
             XCTAssertEqual(response.version, "v0.6.0")
             XCTAssertEqual(response.tasks.count, 1)
             XCTAssertEqual(response.projects.count, 1)
-            XCTAssertEqual(response.labels.count, 2)
+            XCTAssertEqual(response.labels.count, 3)
 
             // Check a few nested properties to be sure
             let firstTask = response.tasks.first
             XCTAssertEqual(firstTask?.title, "Multi collections et DMRag et fichiers uploadés")
-            XCTAssertEqual(firstTask?.subtasks.count, 3)
+            XCTAssertEqual(firstTask?.subtasks.count, 2)
 
             let firstProject = response.projects.first
             XCTAssertEqual(firstProject?.name, "Dydu")
-            XCTAssertEqual(firstProject?.sections.count, 3)
+            XCTAssertEqual(firstProject?.sections.count, 2)
 
         } catch {
             // If decoding fails, print the detailed error

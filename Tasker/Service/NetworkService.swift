@@ -14,7 +14,7 @@ class NetworkService: NetworkServiceProtocol {
         // Configure JSON Decoder
         self.decoder = JSONDecoder()
         let dateFormatter = DateFormatter()
-        self.decoder.dateDecodingStrategy = .custom({ (decoder) -> Date in
+        self.decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
 
@@ -29,7 +29,7 @@ class NetworkService: NetworkServiceProtocol {
             }
 
             throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string: \(dateString)")
-        })
+        }
 
         // Configure JSON Encoder
         self.encoder = JSONEncoder()
@@ -77,6 +77,5 @@ class NetworkService: NetworkServiceProtocol {
         guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
             throw URLError(.badServerResponse)
         }
-        // No content is expected back, but we check the status code.
     }
 }
