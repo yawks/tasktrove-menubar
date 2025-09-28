@@ -35,6 +35,7 @@ class TaskListViewModel: ObservableObject {
 
         switch sortOption {
         case .defaultOrder:
+            // A more robust implementation would use the `taskOrder` array from the `Project` model.
             break
         case .dueDate:
             tasks.sort { $0.dueDate < $1.dueDate }
