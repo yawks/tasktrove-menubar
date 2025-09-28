@@ -1,0 +1,21 @@
+/*
+  English Localizations
+  Tasker
+*/
+
+// MARK: - General
+"app_title" = "Tasker";
+
+// MARK: - ContentView
+"filters_title" = "Filters";
+"loading_tasks" = "Loading tasks...";
+"refresh_button_tooltip" = "Refresh tasks";
+
+// MARK: - TaskRow
+"priority_format" = "P%d";
+"task_subtitle_format" = "%@ • %@"; // Project • Section
+
+// MARK: - Errors
+"error_title" = "Error";
+"error_fetch_failed" = "Failed to load tasks. Please check your connection and try again.";
+"error_update_failed" = "Failed to sync changes. Your edits are saved locally and will be retried.";
