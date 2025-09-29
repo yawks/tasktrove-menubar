@@ -29,7 +29,7 @@ class MockNetworkService: NetworkServiceProtocol {
 
     func fetchTasks() async throws -> APIResponse {
         // Simulate network delay
-        try await Swift.Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+        try await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
 
         // Use the static JSON string from MockData
         let data = Data(MockData.tasksJSON.utf8)

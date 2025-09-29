@@ -105,7 +105,7 @@ struct ContentView: View {
             }
         }
         .animation(.spring(), value: viewModel.errorMessage)
-        .frame(width: 450, minHeight: 200, maxHeight: 600)
+        .frame(minWidth: 450, maxWidth: 450, minHeight: 200, maxHeight: 600)
         .onAppear {
             if viewModel.allTasks.isEmpty {
                 viewModel.fetchData()
