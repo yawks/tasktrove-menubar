@@ -15,15 +15,18 @@ struct ContentView: View {
                     Spacer()
 
                     // Sort Menu
-                    Picker(selection: $viewModel.sortOption,
-                           label: Image(systemName: "arrow.up.arrow.down")
-                            .help("sort_by_tooltip")
-                    ) {
-                        ForEach(SortOption.allCases) { option in
-                            Text(option.rawValue).tag(option)
+                    Menu {
+                        Picker("Sort by", selection: $viewModel.sortOption) {
+                            ForEach(SortOption.allCases) { option in
+                                Text(option.rawValue).tag(option)
+                            }
                         }
+                        .pickerStyle(.inline)
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                            .help("sort_by_tooltip")
                     }
-                    .pickerStyle(.menu)
+                    .menuStyle(.borderlessButton)
 
                     // Refresh Button
                     Button(action: { viewModel.fetchData() }) {
@@ -77,21 +80,49 @@ struct ContentView: View {
 
                     // Project and Label Pickers
                     VStack(spacing: 8) {
-                        Picker("Project", selection: $viewModel.selectedProjectID) {
-                            Text("All Projects").tag(nil as UUID?)
-                            ForEach(viewModel.allProjects) { project in
-                                HStack {
-                                    Image(systemName: "folder.fill")
-                                        .foregroundColor(Color(hex: project.color) ?? .gray)
-                                    Text(project.name)
-                                }.tag(project.id as UUID?)
+                        // Project Multi-Selector Menu
+                        Menu {
+                            Button("All Projects") {
+                                viewModel.selectedProjectIDs.removeAll()
                             }
+                            Divider()
+                            ForEach(viewModel.allProjects) { project in
+                                Button(action: {
+                                    if viewModel.selectedProjectIDs.contains(project.id) {
+                                        viewModel.selectedProjectIDs.remove(project.id)
+                                    } else {
+                                        viewModel.selectedProjectIDs.insert(project.id)
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "folder.fill")
+                                            .foregroundColor(Color(hex: project.color) ?? .gray)
+                                        Text(project.name)
+                                        if viewModel.selectedProjectIDs.contains(project.id) {
+                                            Spacer()
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                            }
+                        } label: {
+                            HStack {
+                                Text("Projects")
+                                if !viewModel.selectedProjectIDs.isEmpty {
+                                    Circle().frame(width: 8, height: 8).foregroundColor(.blue)
+                                }
+                                Spacer()
+                            }
+                            .frame(maxWidth: .infinity)
                         }
-                        .pickerStyle(.menu)
                         .disabled(viewModel.filterCategory == .inbox)
 
-
+                        // Label Multi-Selector Menu
                         Menu {
+                            Button("All Labels") {
+                                viewModel.selectedLabelIDs.removeAll()
+                            }
+                            Divider()
                             ForEach(viewModel.allLabels) { label in
                                 Button(action: {
                                     if viewModel.selectedLabelIDs.contains(label.id) {

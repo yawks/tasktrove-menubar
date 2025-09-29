@@ -32,7 +32,7 @@ class TaskListViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     // Filtering & Sorting criteria
-    @Published var selectedProjectID: UUID?
+    @Published var selectedProjectIDs = Set<UUID>()
     @Published var selectedLabelIDs = Set<UUID>()
     @Published var sortOption: SortOption = .defaultOrder
     @Published var filterCategory: FilterCategory = .all
@@ -142,7 +142,7 @@ class TaskListViewModel: ObservableObject {
         setupDebouncer()
 
         // Reset pagination whenever filters or sorting change
-        $selectedProjectID
+        $selectedProjectIDs
             .dropFirst()
             .sink { [weak self] _ in self?.resetPagination() }
             .store(in: &cancellables)
@@ -267,10 +267,13 @@ class TaskListViewModel: ObservableObject {
     }
 
     private func filterTasksByProject(_ tasks: [TodoTask]) -> [TodoTask] {
-        guard let projectID = selectedProjectID else {
+        guard !selectedProjectIDs.isEmpty else {
             return tasks
         }
-        return tasks.filter { $0.projectId == projectID }
+        return tasks.filter {
+            guard let projID = $0.projectId else { return false }
+            return selectedProjectIDs.contains(projID)
+        }
     }
 
     private func filterTasksByLabels(_ tasks: [TodoTask]) -> [TodoTask] {
