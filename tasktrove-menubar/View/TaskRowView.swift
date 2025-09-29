@@ -102,7 +102,7 @@ struct TaskRowView: View {
                 }
             }
         }
-        .padding(.vertical, 16)
+        .padding(16)
     }
 
     private func isOverdue(_ date: Date) -> Bool {

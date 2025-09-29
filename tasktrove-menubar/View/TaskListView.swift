@@ -7,6 +7,7 @@ struct TaskListView: View {
         List(viewModel.paginatedTasks) { task in
             TaskRowView(task: task)
                 .listRowSeparator(.hidden)
+                .listRowInsets(EdgeInsets())
         }
         .listStyle(.plain) // Use a plain style for a more compact look
     }
