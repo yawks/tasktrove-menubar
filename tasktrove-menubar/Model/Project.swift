@@ -7,7 +7,7 @@ struct Project: Codable, Identifiable {
     let color: String
     let shared: Bool
     let sections: [Section]
-    let taskOrder: [UUID]
+    let taskOrder: [UUID]?
 }
 
 struct Section: Codable, Identifiable {

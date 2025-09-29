@@ -52,7 +52,8 @@ class SettingsViewModel: ObservableObject {
 
             } catch {
                 // This will now catch both invalid URL errors and other connection errors.
-                feedbackMessage = ("Connection failed: \(error.localizedDescription)", true)
+                print("error", error)
+                feedbackMessage = ("Connection failed: \(error)", true)
             }
 
             isLoading = false

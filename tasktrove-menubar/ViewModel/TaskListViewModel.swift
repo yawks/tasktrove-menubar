@@ -47,6 +47,19 @@ class TaskListViewModel: ObservableObject {
         return Array(allFiltered[startIndex..<endIndex])
     }
 
+    func comparison<T: Comparable>(obj1: TodoTask, obj2: TodoTask, keyPath: KeyPath<TodoTask, T?>) -> Bool {
+        switch (obj1[keyPath: keyPath], obj2[keyPath: keyPath]) {
+        case let (lhs?, rhs?):
+            return lhs < rhs
+        case (nil, nil):
+            return false
+        case (nil, _?):
+            return false // nil value goes after non-nil
+        case (_?, nil):
+            return true  // non-nil value goes before nil
+        }
+    }
+
     var filteredTasks: [TodoTask] {
         var tasks = filterTasksByDueDate(allTasks)
         tasks = filterTasksByProject(tasks)
@@ -57,9 +70,13 @@ class TaskListViewModel: ObservableObject {
             // A more robust implementation would use the `taskOrder` array from the `Project` model.
             break
         case .dueDate:
-            tasks.sort { $0.dueDate < $1.dueDate }
+            tasks.sort {
+                comparison(obj1: $0, obj2: $1, keyPath: \.dueDate)
+            }
         case .priority:
-            tasks.sort { $0.priority > $1.priority }
+            tasks.sort {
+                comparison(obj1: $0, obj2: $1, keyPath: \.priority)
+            }
         }
 
         return tasks
@@ -203,7 +220,8 @@ class TaskListViewModel: ObservableObject {
         let today = calendar.startOfDay(for: Date())
 
         return tasks.filter { task in
-            let taskDueDate = calendar.startOfDay(for: task.dueDate)
+            guard let dueDate = task.dueDate else { return true }
+            let taskDueDate = calendar.startOfDay(for: dueDate)
             return taskDueDate <= today
         }
     }

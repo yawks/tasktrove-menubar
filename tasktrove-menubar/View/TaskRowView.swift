@@ -83,7 +83,7 @@ struct TaskRowView: View {
             // Priority & Due Date
             VStack(alignment: .trailing, spacing: 4) {
                 // Priority (e.g., P1, P2)
-                Text(String(format: NSLocalizedString("priority_format", comment: "Priority format string"), task.priority))
+                Text(String(format: NSLocalizedString("priority_format", comment: "Priority format string"), task.priority ?? "N/A"))
                     .font(.caption)
                     .fontWeight(.bold)
                     .padding(.horizontal, 4)
@@ -91,9 +91,15 @@ struct TaskRowView: View {
                     .cornerRadius(4)
 
                 // Due Date
-                Text(task.dueDate, style: .date)
-                    .font(.caption)
-                    .foregroundColor(isOverdue(task.dueDate) ? .red : .secondary)
+                if let dueDate = task.dueDate {
+                    Text(dueDate, style: .date)
+                        .font(.caption)
+                        .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
+                } else {
+                    Text(NSLocalizedString("No due date", comment: "No due date placeholder"))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding(.vertical, 8)
