@@ -10,12 +10,25 @@ struct TaskerApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            // Conditionally show SettingsView or ContentView
-            if configService.isConfigured, let viewModel = taskListViewModel {
-                ContentView()
-                    .environmentObject(viewModel)
-            } else {
-                SettingsView()
+            // Using a Group to attach the onAppear modifier to the view's content
+            Group {
+                // Conditionally show SettingsView or ContentView
+                if configService.isConfigured, let viewModel = taskListViewModel {
+                    ContentView()
+                        .environmentObject(viewModel)
+                } else {
+                    SettingsView()
+                }
+            }
+            .onAppear {
+                // Initial setup when the app starts.
+                if configService.isConfigured {
+                    guard let config = configService.configuration, let password = configService.getPassword() else {
+                        return
+                    }
+                    let networkService = NetworkService(configuration: config, password: password)
+                    self.taskListViewModel = TaskListViewModel(networkService: networkService)
+                }
             }
         } label: {
             // The icon shown in the menu bar.
@@ -34,16 +47,6 @@ struct TaskerApp: App {
             } else {
                 // If configuration is cleared, destroy the view model.
                 self.taskListViewModel = nil
-            }
-        }
-        .onAppear {
-            // Initial setup when the app starts.
-            if configService.isConfigured {
-                guard let config = configService.configuration, let password = configService.getPassword() else {
-                    return
-                }
-                let networkService = NetworkService(configuration: config, password: password)
-                self.taskListViewModel = TaskListViewModel(networkService: networkService)
             }
         }
     }
