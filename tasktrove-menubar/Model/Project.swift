@@ -1,6 +1,6 @@
 import Foundation
 
-struct Project: Codable, Identifiable {
+struct Project: Codable, Identifiable, Hashable, Equatable, SelectableItem {
     let id: UUID
     let name: String
     let slug: String
@@ -10,7 +10,7 @@ struct Project: Codable, Identifiable {
     let taskOrder: [UUID]?
 }
 
-struct Section: Codable, Identifiable {
+struct Section: Codable, Identifiable, Hashable, Equatable {
     let id: UUID
     let name: String
     let color: String

@@ -8,12 +8,11 @@ protocol SelectableItem: Identifiable, Hashable {
 }
 
 // 2. Make existing models conform to the protocol
-extension Project: SelectableItem {}
-extension Label: SelectableItem {}
+// Conformance is now handled in the model files directly.
 
 
 // 3. The custom multi-select picker view
-struct MultiSelectPickerView<Item: SelectableItem>: View {
+struct MultiSelectPickerView<Item: SelectableItem & Hashable>: View {
     let title: String
     let items: [Item]
     let iconName: String
