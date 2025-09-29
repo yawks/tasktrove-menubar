@@ -3,7 +3,7 @@ import Foundation
 struct TodoTask: Codable, Identifiable {
     let id: UUID
     var title: String
-    var description: String
+    var description: String?
     var completed: Bool
     var priority: Int
     var dueDate: Date
