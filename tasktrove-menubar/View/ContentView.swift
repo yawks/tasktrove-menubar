@@ -56,14 +56,14 @@ struct ContentView: View {
                 // The list of tasks
                 TaskListView()
 
-                // Pager control - Should always be visible
-                if viewModel.totalPages > 1 {
-                    Divider()
-                    PagerView()
-                }
-
                 // --- Bottom Controls ---
                 VStack {
+                    // Pager control - Should always be visible, but part of the animated block
+                    if viewModel.totalPages > 1 {
+                        Divider()
+                        PagerView()
+                    }
+
                     if isFiltersExpanded {
                         // Expanded Filter Panel
                         VStack {
@@ -169,6 +169,7 @@ struct ContentView: View {
                         .transition(.move(edge: .bottom))
                     } else {
                         // Collapsed Filter Button
+                        Divider()
                         HStack {
                             Button("Filters") {
                                 isFiltersExpanded = true
