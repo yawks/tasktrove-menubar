@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var showingSettings = false
     @State private var showingProjectPicker = false
     @State private var showingLabelPicker = false
+    @State private var isFiltersExpanded = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -63,94 +64,123 @@ struct ContentView: View {
 
                 // --- Bottom Controls ---
                 VStack {
-                    Divider()
-
-                    // Quick Filter Buttons
-                    VStack(spacing: 8) {
-                        HStack(spacing: 10) {
-                            FilterButton(title: "Inbox", icon: "tray", category: .inbox, viewModel: viewModel)
-                            FilterButton(title: "Today", icon: "calendar", category: .today, viewModel: viewModel)
-                        }
-                        HStack(spacing: 10) {
-                            FilterButton(title: "Upcoming", icon: "clock", category: .upcoming, viewModel: viewModel)
-                            FilterButton(title: "Completed", icon: "checkmark.circle", category: .completed, viewModel: viewModel)
-                        }
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-
-                    // Project and Label Pickers
-                    VStack(spacing: 8) {
-                        // Project Picker Button
-                        Button(action: { showingProjectPicker = true }) {
+                    if isFiltersExpanded {
+                        // Expanded Filter Panel
+                        VStack {
+                            // Header with collapse button
                             HStack {
-                                if viewModel.selectedProjects.isEmpty {
-                                    Text("Projects")
-                                    Spacer()
-                                } else {
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack {
-                                            ForEach(viewModel.selectedProjects) { project in
-                                                ItemPillView(item: project, iconName: "folder.fill")
+                                Text("Filters")
+                                    .font(.headline)
+                                Spacer()
+                                Button(action: { isFiltersExpanded = false }) {
+                                    Image(systemName: "chevron.down")
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+
+                            // Quick Filter Buttons
+                            VStack(spacing: 8) {
+                                HStack(spacing: 10) {
+                                    FilterButton(title: "Inbox", icon: "tray", category: .inbox, viewModel: viewModel)
+                                    FilterButton(title: "Today", icon: "calendar", category: .today, viewModel: viewModel)
+                                }
+                                HStack(spacing: 10) {
+                                    FilterButton(title: "Upcoming", icon: "clock", category: .upcoming, viewModel: viewModel)
+                                    FilterButton(title: "Completed", icon: "checkmark.circle", category: .completed, viewModel: viewModel)
+                                }
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+
+
+                            // Project and Label Pickers
+                            VStack(spacing: 8) {
+                                // Project Picker Button
+                                Button(action: { showingProjectPicker = true }) {
+                                    HStack {
+                                        if viewModel.selectedProjects.isEmpty {
+                                            Text("Projects")
+                                            Spacer()
+                                        } else {
+                                            ScrollView(.horizontal, showsIndicators: false) {
+                                                HStack {
+                                                    ForEach(viewModel.selectedProjects) { project in
+                                                        ItemPillView(item: project, iconName: "folder.fill")
+                                                    }
+                                                }
                                             }
                                         }
+                                        Image(systemName: "chevron.right")
                                     }
+                                    .padding(8)
+                                    .background(Color.secondary.opacity(0.1))
+                                    .cornerRadius(8)
                                 }
-                                Image(systemName: "chevron.right")
-                            }
-                            .padding(8)
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(8)
-                        }
-                        .buttonStyle(.plain)
-                        .popover(isPresented: $showingProjectPicker) {
-                            MultiSelectPickerView(
-                                title: "Filter by Project",
-                                items: viewModel.allProjects,
-                                iconName: "folder.fill",
-                                selections: $viewModel.selectedProjectIDs
-                            )
-                        }
-                        .disabled(viewModel.filterCategory == .inbox)
+                                .buttonStyle(.plain)
+                                .popover(isPresented: $showingProjectPicker) {
+                                    MultiSelectPickerView(
+                                        title: "Filter by Project",
+                                        items: viewModel.allProjects,
+                                        iconName: "folder.fill",
+                                        selections: $viewModel.selectedProjectIDs
+                                    )
+                                }
+                                .disabled(viewModel.filterCategory == .inbox)
 
 
-                        // Label Picker Button
-                        Button(action: { showingLabelPicker = true }) {
-                            HStack {
-                                if viewModel.selectedLabels.isEmpty {
-                                    Text("Labels")
-                                    Spacer()
-                                } else {
-                                    ScrollView(.horizontal, showsIndicators: false) {
-                                        HStack {
-                                            ForEach(viewModel.selectedLabels) { label in
-                                                ItemPillView(item: label, iconName: "tag.fill")
+                                // Label Picker Button
+                                Button(action: { showingLabelPicker = true }) {
+                                    HStack {
+                                        if viewModel.selectedLabels.isEmpty {
+                                            Text("Labels")
+                                            Spacer()
+                                        } else {
+                                            ScrollView(.horizontal, showsIndicators: false) {
+                                                HStack {
+                                                    ForEach(viewModel.selectedLabels) { label in
+                                                        ItemPillView(item: label, iconName: "tag.fill")
+                                                    }
+                                                }
                                             }
                                         }
+                                        Image(systemName: "chevron.right")
                                     }
+                                    .padding(8)
+                                    .background(Color.secondary.opacity(0.1))
+                                    .cornerRadius(8)
                                 }
-                                Image(systemName: "chevron.right")
+                                .buttonStyle(.plain)
+                                .popover(isPresented: $showingLabelPicker) {
+                                    MultiSelectPickerView(
+                                        title: "Filter by Label",
+                                        items: viewModel.allLabels,
+                                        iconName: "tag.fill",
+                                        selections: $viewModel.selectedLabelIDs
+                                    )
+                                }
+                                .disabled(viewModel.filterCategory == .completed)
                             }
-                            .padding(8)
-                            .background(Color.secondary.opacity(0.1))
-                            .cornerRadius(8)
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
                         }
-                        .buttonStyle(.plain)
-                        .popover(isPresented: $showingLabelPicker) {
-                            MultiSelectPickerView(
-                                title: "Filter by Label",
-                                items: viewModel.allLabels,
-                                iconName: "tag.fill",
-                                selections: $viewModel.selectedLabelIDs
-                            )
+                        .background(Color(.windowBackgroundColor).opacity(0.8))
+                        .transition(.move(edge: .bottom))
+                    } else {
+                        // Collapsed Filter Button
+                        HStack {
+                            Button("Filters") {
+                                isFiltersExpanded = true
+                            }
+                            .buttonStyle(.link)
+                            Spacer()
                         }
-                        .disabled(viewModel.filterCategory == .completed)
+                        .padding()
+                        .background(Color(.windowBackgroundColor).opacity(0.8))
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 8)
                 }
-                .background(Color(.windowBackgroundColor).opacity(0.8))
+                .animation(.spring(), value: isFiltersExpanded)
             }
             .blur(radius: viewModel.errorMessage != nil ? 3 : 0)
             .sheet(isPresented: $showingSettings) {
