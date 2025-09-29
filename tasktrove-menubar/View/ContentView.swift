@@ -82,11 +82,14 @@ struct ContentView: View {
 
                 Divider()
 
-                // The list of tasks
-                TaskListView()
+                if let taskBinding = Binding($viewModel.selectedTask) {
+                    TaskDetailView(task: taskBinding)
+                } else {
+                    // The list of tasks
+                    TaskListView()
 
-                // --- Bottom Controls ---
-                VStack {
+                    // --- Bottom Controls ---
+                    VStack {
                     // Pager control - Should always be visible, but part of the animated block
                     if viewModel.totalPages > 1 {
                         Divider()
@@ -211,6 +214,7 @@ struct ContentView: View {
                     }
                 }
                 .animation(.spring(), value: isFiltersExpanded)
+                }
             }
             .blur(radius: viewModel.errorMessage != nil ? 3 : 0)
             .sheet(isPresented: $showingSettings) {

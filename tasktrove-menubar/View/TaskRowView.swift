@@ -62,19 +62,28 @@ struct TaskRowView: View {
 
                 // Subtasks Disclosure Group
                 if !task.subtasks.isEmpty {
-                    DisclosureGroup {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(task.subtasks) { subtask in
-                                SubtaskRowView(subtask: subtask, task: task)
+                    HStack {
+                        DisclosureGroup {
+                            VStack(alignment: .leading, spacing: 8) {
+                                ForEach(task.subtasks) { subtask in
+                                    SubtaskRowView(subtask: subtask, task: task)
+                                }
                             }
+                            .padding(.top, 8)
+                        } label: {
+                            Text("\(task.subtasks.count) subtasks")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
                         }
-                        .padding(.top, 8)
-                    } label: {
-                        Text("\(task.subtasks.count) subtasks")
+                        .accentColor(.secondary)
+
+                        Spacer()
+
+                        Image(systemName: "checklist")
+                        Text("\(task.subtasks.filter { $0.completed }.count)/\(task.subtasks.count)")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-                    .accentColor(.secondary)
                 }
             }
 
@@ -102,7 +111,11 @@ struct TaskRowView: View {
                 }
             }
         }
-        .padding(16)
+        .padding(5)
+        .contentShape(Rectangle()) // Make the whole area tappable
+        .onTapGesture {
+            viewModel.selectedTask = task
+        }
     }
 
     private func isOverdue(_ date: Date) -> Bool {

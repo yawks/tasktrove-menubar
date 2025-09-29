@@ -37,6 +37,9 @@ class TaskListViewModel: ObservableObject {
     @Published var sortOption: SortOption = .dueDate
     @Published var filterCategory: FilterCategory = .all
 
+    // Navigation
+    @Published var selectedTask: TodoTask?
+
 
     // Pagination
     @Published var currentPage: Int = 0
