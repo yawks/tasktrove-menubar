@@ -208,13 +208,18 @@ struct TaskDetailView: View {
                     if !task.subtasks.isEmpty {
                         Text("Subtasks").font(.caption).foregroundColor(.secondary)
                         ForEach($task.subtasks) { $subtask in
-                            Toggle(isOn: $subtask.completed) {
+                            Button(action: {
+                                $subtask.completed.wrappedValue.toggle()
+                            }) {
                                 HStack {
-                                    Image(systemName: subtask.completed ? "checkmark.circle.fill" : "circle")
-                                    Text(subtask.title)
+                                    Image(systemName: $subtask.completed.wrappedValue ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor($subtask.completed.wrappedValue ? .green : .secondary)
+                                    Text($subtask.title.wrappedValue)
+                                        .strikethrough($subtask.completed.wrappedValue, color: .secondary)
+                                        .foregroundColor($subtask.completed.wrappedValue ? .secondary : .primary)
                                 }
                             }
-                            .toggleStyle(.plain)
+                            .buttonStyle(.plain)
                         }
                     }
                 }
