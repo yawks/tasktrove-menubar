@@ -11,12 +11,32 @@ protocol SelectableItem: Identifiable, Hashable {
 // Conformance is now handled in the model files directly.
 
 
+// Custom ToggleStyle for checkmark lists
+struct CheckmarkToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        Button(action: {
+            configuration.isOn.toggle()
+        }) {
+            HStack {
+                configuration.label
+                Spacer()
+                if configuration.isOn {
+                    Image(systemName: "checkmark")
+                        .foregroundColor(.accentColor)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // 3. The custom multi-select picker view
 struct MultiSelectPickerView<Item: SelectableItem & Hashable>: View {
     let title: String
     let items: [Item]
     let iconName: String
     @Binding var selections: Set<UUID>
+    @Environment(\.presentationMode) var presentationMode
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -26,9 +46,7 @@ struct MultiSelectPickerView<Item: SelectableItem & Hashable>: View {
                     .font(.headline)
                 Spacer()
                 Button("Done") {
-                    // This button's action is handled by the popover's dismissal
-                    // but it's good practice to have a dismiss button.
-                    // We can connect this to the popover's isPresented state if needed.
+                    presentationMode.wrappedValue.dismiss()
                 }
             }
             .padding()
@@ -53,25 +71,25 @@ struct MultiSelectPickerView<Item: SelectableItem & Hashable>: View {
 
             // List of selectable items
             List(items) { item in
-                Button(action: {
-                    if selections.contains(item.id) {
-                        selections.remove(item.id)
-                    } else {
-                        selections.insert(item.id)
+                let isSelectedBinding = Binding<Bool>(
+                    get: { self.selections.contains(item.id) },
+                    set: { isSelected in
+                        if isSelected {
+                            self.selections.insert(item.id)
+                        } else {
+                            self.selections.remove(item.id)
+                        }
                     }
-                }) {
+                )
+
+                Toggle(isOn: isSelectedBinding) {
                     HStack {
                         Image(systemName: iconName)
                             .foregroundColor(Color(hex: item.color) ?? .secondary)
                         Text(item.name)
-                        Spacer()
-                        if selections.contains(item.id) {
-                            Image(systemName: "checkmark")
-                                .foregroundColor(.accentColor)
-                        }
                     }
                 }
-                .buttonStyle(.plain)
+                .toggleStyle(CheckmarkToggleStyle())
             }
             .listStyle(.plain)
         }
