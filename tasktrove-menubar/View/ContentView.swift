@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var showingProjectPicker = false
     @State private var showingLabelPicker = false
     @State private var isFiltersExpanded = false
+    @State private var showingSortPicker = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -17,34 +18,54 @@ struct ContentView: View {
                         .font(.title2.bold())
                     Spacer()
 
-                    // Sort Menu
-                    Menu {
-                        Picker("Sort by", selection: $viewModel.sortOption) {
-                            ForEach(SortOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
+                    // Sort Button
+                    Button(action: { showingSortPicker = true }) {
+                        Image(systemName: "arrow.up.arrow.down")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Change sort order")
+                    .popover(isPresented: $showingSortPicker) {
+                        VStack(alignment: .leading) {
+                            ForEach(SortOption.allCases, id: \.self) { option in
+                                Button(action: {
+                                    viewModel.sortOption = option
+                                    showingSortPicker = false
+                                }) {
+                                    HStack {
+                                        Text(option.rawValue)
+                                        Spacer()
+                                        if viewModel.sortOption == option {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
-                        .pickerStyle(.inline)
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
-                            .help("sort_by_tooltip")
+                        .padding()
                     }
-                    .menuStyle(.borderlessButton)
 
                     // Refresh Button
                     Button(action: { viewModel.fetchData() }) {
                         Image(systemName: "arrow.clockwise")
-                            .help("refresh_button_tooltip")
                     }
                     .buttonStyle(.plain)
+                    .help("Refresh tasks")
                     .disabled(viewModel.isLoading)
 
                     // Settings Button
                     Button(action: { showingSettings.toggle() }) {
                         Image(systemName: "gear")
-                            .help("settings_button_tooltip")
                     }
                     .buttonStyle(.plain)
+                    .help("Settings")
+
+                    // Quit Button
+                    Button(action: { NSApplication.shared.terminate(nil) }) {
+                        Image(systemName: "power")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Quit application")
                 }
                 .padding()
                 .overlay(
