@@ -32,6 +32,14 @@ struct ContentView: View {
                                     showingSortPicker = false
                                 }) {
                                     HStack {
+                                        switch option {
+                                        case .defaultOrder:
+                                            Image(systemName: "list.bullet")
+                                        case .dueDate:
+                                            Image(systemName: "calendar")
+                                        case .priority:
+                                            Image(systemName: "flag")
+                                        }
                                         Text(option.rawValue)
                                         Spacer()
                                         if viewModel.sortOption == option {

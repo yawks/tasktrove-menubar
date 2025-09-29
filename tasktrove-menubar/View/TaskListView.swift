@@ -6,6 +6,7 @@ struct TaskListView: View {
     var body: some View {
         List(viewModel.paginatedTasks) { task in
             TaskRowView(task: task)
+                .listRowSeparator(.hidden)
         }
         .listStyle(.plain) // Use a plain style for a more compact look
     }
