@@ -4,6 +4,8 @@ import Combine
 struct ContentView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
     @State private var showingSettings = false
+    @State private var showingProjectPicker = false
+    @State private var showingLabelPicker = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -80,77 +82,54 @@ struct ContentView: View {
 
                     // Project and Label Pickers
                     VStack(spacing: 8) {
-                        // Project Multi-Selector Menu
-                        Menu {
-                            Button("All Projects") {
-                                viewModel.selectedProjectIDs.removeAll()
-                            }
-                            Divider()
-                            ForEach(viewModel.allProjects) { project in
-                                Button(action: {
-                                    if viewModel.selectedProjectIDs.contains(project.id) {
-                                        viewModel.selectedProjectIDs.remove(project.id)
-                                    } else {
-                                        viewModel.selectedProjectIDs.insert(project.id)
-                                    }
-                                }) {
-                                    HStack {
-                                        Image(systemName: "folder.fill")
-                                            .foregroundColor(Color(hex: project.color) ?? .gray)
-                                        Text(project.name)
-                                        if viewModel.selectedProjectIDs.contains(project.id) {
-                                            Spacer()
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
-                        } label: {
+                        // Project Picker Button
+                        Button(action: { showingProjectPicker = true }) {
                             HStack {
                                 Text("Projects")
                                 if !viewModel.selectedProjectIDs.isEmpty {
                                     Circle().frame(width: 8, height: 8).foregroundColor(.blue)
                                 }
                                 Spacer()
+                                Image(systemName: "chevron.right")
                             }
-                            .frame(maxWidth: .infinity)
+                            .padding(8)
+                            .background(Color.secondary.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                        .popover(isPresented: $showingProjectPicker) {
+                            MultiSelectPickerView(
+                                title: "Filter by Project",
+                                items: viewModel.allProjects,
+                                iconName: "folder.fill",
+                                selections: $viewModel.selectedProjectIDs
+                            )
                         }
                         .disabled(viewModel.filterCategory == .inbox)
 
-                        // Label Multi-Selector Menu
-                        Menu {
-                            Button("All Labels") {
-                                viewModel.selectedLabelIDs.removeAll()
-                            }
-                            Divider()
-                            ForEach(viewModel.allLabels) { label in
-                                Button(action: {
-                                    if viewModel.selectedLabelIDs.contains(label.id) {
-                                        viewModel.selectedLabelIDs.remove(label.id)
-                                    } else {
-                                        viewModel.selectedLabelIDs.insert(label.id)
-                                    }
-                                }) {
-                                    HStack {
-                                        Image(systemName: "tag.fill")
-                                            .foregroundColor(Color(hex: label.color) ?? .gray)
-                                        Text(label.name)
-                                        if viewModel.selectedLabelIDs.contains(label.id) {
-                                            Spacer()
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
-                                }
-                            }
-                        } label: {
+
+                        // Label Picker Button
+                        Button(action: { showingLabelPicker = true }) {
                             HStack {
                                 Text("Labels")
                                 if !viewModel.selectedLabelIDs.isEmpty {
                                     Circle().frame(width: 8, height: 8).foregroundColor(.blue)
                                 }
                                 Spacer()
+                                Image(systemName: "chevron.right")
                             }
-                            .frame(maxWidth: .infinity)
+                            .padding(8)
+                            .background(Color.secondary.opacity(0.1))
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                        .popover(isPresented: $showingLabelPicker) {
+                            MultiSelectPickerView(
+                                title: "Filter by Label",
+                                items: viewModel.allLabels,
+                                iconName: "tag.fill",
+                                selections: $viewModel.selectedLabelIDs
+                            )
                         }
                         .disabled(viewModel.filterCategory == .completed)
                     }
@@ -175,6 +154,7 @@ struct ContentView: View {
         .animation(.spring(), value: viewModel.errorMessage)
         .frame(minWidth: 450, maxWidth: 450, minHeight: 400, maxHeight: 800)
         .onAppear {
+            viewModel.filterCategory = .all // Reset to default view
             if viewModel.allTasks.isEmpty {
                 viewModel.fetchData()
             }
