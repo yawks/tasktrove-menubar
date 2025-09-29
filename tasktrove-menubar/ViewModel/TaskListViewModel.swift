@@ -9,6 +9,16 @@ enum SortOption: String, CaseIterable, Identifiable {
     var id: String { self.rawValue }
 }
 
+enum FilterCategory: String, CaseIterable, Identifiable {
+    case all = "All"
+    case inbox = "Inbox"
+    case today = "Today"
+    case upcoming = "Upcoming"
+    case completed = "Completed"
+
+    var id: String { self.rawValue }
+}
+
 @MainActor
 class TaskListViewModel: ObservableObject {
 
@@ -25,6 +35,8 @@ class TaskListViewModel: ObservableObject {
     @Published var selectedProjectID: UUID?
     @Published var selectedLabelIDs = Set<UUID>()
     @Published var sortOption: SortOption = .defaultOrder
+    @Published var filterCategory: FilterCategory = .all
+
 
     // Pagination
     @Published var currentPage: Int = 0
@@ -61,10 +73,42 @@ class TaskListViewModel: ObservableObject {
     }
 
     var filteredTasks: [TodoTask] {
-        var tasks = filterTasksByDueDate(allTasks)
-        tasks = filterTasksByProject(tasks)
-        tasks = filterTasksByLabels(tasks)
+        var tasks: [TodoTask]
 
+        // 1. Primary Filter based on the selected category
+        switch filterCategory {
+        case .all:
+            tasks = allTasks.filter { !$0.completed }
+        case .inbox:
+            tasks = allTasks.filter { $0.projectId == nil && !$0.completed }
+        case .today:
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
+            tasks = allTasks.filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                let taskDueDate = calendar.startOfDay(for: dueDate)
+                return taskDueDate <= today && !task.completed
+            }
+        case .upcoming:
+            let calendar = Calendar.current
+            let today = calendar.startOfDay(for: Date())
+            tasks = allTasks.filter { task in
+                guard let dueDate = task.dueDate else { return false }
+                let taskDueDate = calendar.startOfDay(for: dueDate)
+                return taskDueDate > today && !task.completed
+            }
+        case .completed:
+            tasks = allTasks.filter { $0.completed }
+        }
+
+        // 2. Secondary Filters (Project and Labels) - only apply if not in a special category
+        if filterCategory == .all || filterCategory == .inbox {
+            tasks = filterTasksByProject(tasks)
+            tasks = filterTasksByLabels(tasks)
+        }
+
+
+        // 3. Sorting
         switch sortOption {
         case .defaultOrder:
             // A more robust implementation would use the `taskOrder` array from the `Project` model.
@@ -107,6 +151,11 @@ class TaskListViewModel: ObservableObject {
             .store(in: &cancellables)
 
         $sortOption
+            .dropFirst()
+            .sink { [weak self] _ in self?.resetPagination() }
+            .store(in: &cancellables)
+
+        $filterCategory
             .dropFirst()
             .sink { [weak self] _ in self?.resetPagination() }
             .store(in: &cancellables)
@@ -212,17 +261,6 @@ class TaskListViewModel: ObservableObject {
             } catch {
                 errorMessage = NSLocalizedString("error_update_failed", comment: "Error message for network update failure")
             }
-        }
-    }
-
-    private func filterTasksByDueDate(_ tasks: [TodoTask]) -> [TodoTask] {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-
-        return tasks.filter { task in
-            guard let dueDate = task.dueDate else { return true }
-            let taskDueDate = calendar.startOfDay(for: dueDate)
-            return taskDueDate <= today
         }
     }
 
