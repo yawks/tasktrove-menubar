@@ -1,0 +1,21 @@
+/*
+  French Localizations
+  Tasker
+*/
+
+// MARK: - General
+"app_title" = "Tasker";
+
+// MARK: - ContentView
+"filters_title" = "Filtres";
+"loading_tasks" = "Chargement des tâches...";
+"refresh_button_tooltip" = "Rafraîchir les tâches";
+
+// MARK: - TaskRow
+"priority_format" = "P%d";
+"task_subtitle_format" = "%@ • %@"; // Projet • Section
+
+// MARK: - Errors
+"error_title" = "Erreur";
+"error_fetch_failed" = "Échec du chargement des tâches. Vérifiez votre connexion et réessayez.";
+"error_update_failed" = "Échec de la synchronisation. Vos modifications sont sauvegardées localement et seront réessayées.";
