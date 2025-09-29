@@ -56,12 +56,6 @@ struct ContentView: View {
                 // The list of tasks
                 TaskListView()
 
-                // Pager control
-                if viewModel.totalPages > 1 {
-                    Divider()
-                    PagerView()
-                }
-
                 // --- Bottom Controls ---
                 VStack {
                     if isFiltersExpanded {
@@ -164,6 +158,12 @@ struct ContentView: View {
                             }
                             .padding(.horizontal)
                             .padding(.vertical, 8)
+
+                            // Pager control
+                            if viewModel.totalPages > 1 {
+                                Divider()
+                                PagerView()
+                            }
                         }
                         .background(Color(.windowBackgroundColor).opacity(0.8))
                         .transition(.move(edge: .bottom))
