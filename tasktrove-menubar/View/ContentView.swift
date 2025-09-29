@@ -85,11 +85,18 @@ struct ContentView: View {
                         // Project Picker Button
                         Button(action: { showingProjectPicker = true }) {
                             HStack {
-                                Text("Projects")
-                                if !viewModel.selectedProjectIDs.isEmpty {
-                                    Circle().frame(width: 8, height: 8).foregroundColor(.blue)
+                                if viewModel.selectedProjects.isEmpty {
+                                    Text("Projects")
+                                    Spacer()
+                                } else {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack {
+                                            ForEach(viewModel.selectedProjects) { project in
+                                                ItemPillView(item: project, iconName: "folder.fill")
+                                            }
+                                        }
+                                    }
                                 }
-                                Spacer()
                                 Image(systemName: "chevron.right")
                             }
                             .padding(8)
@@ -111,11 +118,18 @@ struct ContentView: View {
                         // Label Picker Button
                         Button(action: { showingLabelPicker = true }) {
                             HStack {
-                                Text("Labels")
-                                if !viewModel.selectedLabelIDs.isEmpty {
-                                    Circle().frame(width: 8, height: 8).foregroundColor(.blue)
+                                if viewModel.selectedLabels.isEmpty {
+                                    Text("Labels")
+                                    Spacer()
+                                } else {
+                                    ScrollView(.horizontal, showsIndicators: false) {
+                                        HStack {
+                                            ForEach(viewModel.selectedLabels) { label in
+                                                ItemPillView(item: label, iconName: "tag.fill")
+                                            }
+                                        }
+                                    }
                                 }
-                                Spacer()
                                 Image(systemName: "chevron.right")
                             }
                             .padding(8)

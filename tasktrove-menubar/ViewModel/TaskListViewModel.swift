@@ -286,6 +286,21 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Computed Properties for UI
+
+    var selectedProjects: [Project] {
+        // Create a dictionary for quick lookups
+        let projectsByID = Dictionary(uniqueKeysWithValues: allProjects.map { ($0.id, $0) })
+        // Map selected IDs to project objects, maintaining order if necessary
+        return selectedProjectIDs.compactMap { projectsByID[$0] }
+    }
+
+    var selectedLabels: [Label] {
+        let labelsByID = Dictionary(uniqueKeysWithValues: allLabels.map { ($0.id, $0) })
+        return selectedLabelIDs.compactMap { labelsByID[$0] }
+    }
+
+
     // MARK: - Data Resolution Methods
 
     func project(for task: TodoTask) -> Project? {
