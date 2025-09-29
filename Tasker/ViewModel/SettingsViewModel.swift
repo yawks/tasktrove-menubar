@@ -38,10 +38,10 @@ class SettingsViewModel: ObservableObject {
         Task {
             let newConfig = APIConfiguration(endpoint: endpoint, login: login)
 
-            // Create a temporary network service to test the new credentials.
-            let testNetworkService = NetworkService(configuration: newConfig, password: password)
-
             do {
+                // Create a temporary network service. This can throw if the URL is invalid.
+                let testNetworkService = try NetworkService(configuration: newConfig, password: password)
+
                 // Try to fetch tasks to validate the configuration.
                 _ = try await testNetworkService.fetchTasks()
 
@@ -51,6 +51,7 @@ class SettingsViewModel: ObservableObject {
                 feedbackMessage = ("Configuration saved successfully!", false)
 
             } catch {
+                // This will now catch both invalid URL errors and other connection errors.
                 feedbackMessage = ("Connection failed: \(error.localizedDescription)", true)
             }
 

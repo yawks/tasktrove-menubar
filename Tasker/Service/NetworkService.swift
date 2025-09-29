@@ -1,5 +1,16 @@
 import Foundation
 
+enum NetworkError: Error, LocalizedError {
+    case invalidURL
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "The provided endpoint URL is not valid. Please ensure it includes 'http://' or 'https://'."
+        }
+    }
+}
+
 /// The concrete implementation of `NetworkServiceProtocol` that performs live network requests.
 class NetworkService: NetworkServiceProtocol {
 
@@ -9,9 +20,12 @@ class NetworkService: NetworkServiceProtocol {
     private let encoder: JSONEncoder
     private let basicAuthHeader: String
 
-    /// Initializes the service with a specific API configuration.
-    init(configuration: APIConfiguration, password: String?) {
-        self.baseURL = URL(string: configuration.endpoint)!
+    /// Initializes the service with a specific API configuration. Can throw an error if the URL is invalid.
+    init(configuration: APIConfiguration, password: String?) throws {
+        guard let url = URL(string: configuration.endpoint) else {
+            throw NetworkError.invalidURL
+        }
+        self.baseURL = url
         self.session = URLSession(configuration: .default)
 
         // Setup Basic Auth header

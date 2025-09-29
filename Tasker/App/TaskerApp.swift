@@ -22,32 +22,40 @@ struct TaskerApp: App {
             }
             .onAppear {
                 // Initial setup when the app starts.
-                if configService.isConfigured {
-                    guard let config = configService.configuration, let password = configService.getPassword() else {
-                        return
-                    }
-                    let networkService = NetworkService(configuration: config, password: password)
-                    self.taskListViewModel = TaskListViewModel(networkService: networkService)
-                }
+                setupServices()
             }
         } label: {
             // The icon shown in the menu bar.
             Image(systemName: "checklist")
         }
         .menuBarExtraStyle(.window)
-        .onChange(of: configService.isConfigured) { isConfigured in
+        .onChange(of: configService.isConfigured) { _ in
             // React to configuration changes.
-            if isConfigured {
-                // If configuration becomes available, create the network service and view model.
-                guard let config = configService.configuration, let password = configService.getPassword() else {
-                    return
-                }
-                let networkService = NetworkService(configuration: config, password: password)
+            setupServices()
+        }
+    }
+
+    /// Sets up the necessary services based on the current configuration.
+    /// If configuration is invalid, it will be cleared.
+    private func setupServices() {
+        if configService.isConfigured {
+            guard let config = configService.configuration, let password = configService.getPassword() else {
+                return
+            }
+
+            do {
+                let networkService = try NetworkService(configuration: config, password: password)
                 self.taskListViewModel = TaskListViewModel(networkService: networkService)
-            } else {
-                // If configuration is cleared, destroy the view model.
+            } catch {
+                // If creating the service fails (e.g., invalid URL), clear the bad config.
+                print("Failed to create network service with saved config: \(error.localizedDescription). Clearing configuration.")
+                try? configService.clearConfiguration()
                 self.taskListViewModel = nil
             }
+
+        } else {
+            // If configuration is cleared, destroy the view model.
+            self.taskListViewModel = nil
         }
     }
 }
