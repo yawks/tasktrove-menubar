@@ -15,18 +15,15 @@ struct ContentView: View {
                     Spacer()
 
                     // Sort Menu
-                    Menu {
-                        Picker("Sort by", selection: $viewModel.sortOption) {
-                            ForEach(SortOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "arrow.up.arrow.down")
+                    Picker(selection: $viewModel.sortOption,
+                           label: Image(systemName: "arrow.up.arrow.down")
                             .help("sort_by_tooltip")
+                    ) {
+                        ForEach(SortOption.allCases) { option in
+                            Text(option.rawValue).tag(option)
+                        }
                     }
-                    .pickerStyle(.inline)
-                    .menuStyle(.borderlessButton)
+                    .pickerStyle(.menu)
 
                     // Refresh Button
                     Button(action: { viewModel.fetchData() }) {
@@ -52,6 +49,12 @@ struct ContentView: View {
 
                 // The list of tasks
                 TaskListView()
+
+                // Pager control
+                if viewModel.totalPages > 1 {
+                    Divider()
+                    PagerView()
+                }
 
                 // --- Bottom Controls ---
                 VStack {
@@ -85,7 +88,7 @@ struct ContentView: View {
                             }
                         }
                         .pickerStyle(.menu)
-                        .disabled(viewModel.filterCategory != .all)
+                        .disabled(viewModel.filterCategory == .inbox)
 
 
                         Menu {
@@ -118,19 +121,12 @@ struct ContentView: View {
                             }
                             .frame(maxWidth: .infinity)
                         }
-                        .disabled(viewModel.filterCategory != .all)
+                        .disabled(viewModel.filterCategory == .completed)
                     }
                     .padding(.horizontal)
                     .padding(.vertical, 8)
                 }
                 .background(Color(.windowBackgroundColor).opacity(0.8))
-
-
-                // Pager control
-                if viewModel.totalPages > 1 {
-                    Divider()
-                    PagerView()
-                }
             }
             .blur(radius: viewModel.errorMessage != nil ? 3 : 0)
             .sheet(isPresented: $showingSettings) {
@@ -146,7 +142,7 @@ struct ContentView: View {
             }
         }
         .animation(.spring(), value: viewModel.errorMessage)
-        .frame(minWidth: 450, maxWidth: 450, minHeight: 200, maxHeight: 600)
+        .frame(minWidth: 450, maxWidth: 450, minHeight: 400, maxHeight: 800)
         .onAppear {
             if viewModel.allTasks.isEmpty {
                 viewModel.fetchData()

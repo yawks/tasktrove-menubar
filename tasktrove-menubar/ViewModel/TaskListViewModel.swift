@@ -101,9 +101,11 @@ class TaskListViewModel: ObservableObject {
             tasks = allTasks.filter { $0.completed }
         }
 
-        // 2. Secondary Filters (Project and Labels) - only apply if not in a special category
-        if filterCategory == .all || filterCategory == .inbox {
+        // 2. Secondary Filters (Project and Labels)
+        if filterCategory != .inbox { // "Inbox" is for tasks without a project.
             tasks = filterTasksByProject(tasks)
+        }
+        if filterCategory != .completed { // The "Completed" view should not be filtered by labels.
             tasks = filterTasksByLabels(tasks)
         }
 
