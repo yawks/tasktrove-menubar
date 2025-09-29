@@ -3,13 +3,21 @@ import Foundation
 /// The concrete implementation of `NetworkServiceProtocol` that performs live network requests.
 class NetworkService: NetworkServiceProtocol {
 
-    private let baseURL = URL(string: "https://api.example.com/api")! // Placeholder URL
+    private let baseURL: URL
     private let session: URLSession
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
+    private let basicAuthHeader: String
 
-    init() {
+    /// Initializes the service with a specific API configuration.
+    init(configuration: APIConfiguration, password: String?) {
+        self.baseURL = URL(string: configuration.endpoint)!
         self.session = URLSession(configuration: .default)
+
+        // Setup Basic Auth header
+        let loginString = "\(configuration.login):\(password ?? "")"
+        let loginData = loginString.data(using: .utf8)!
+        self.basicAuthHeader = "Basic \(loginData.base64EncodedString())"
 
         // Configure JSON Decoder
         self.decoder = JSONDecoder()
@@ -33,23 +41,15 @@ class NetworkService: NetworkServiceProtocol {
 
         // Configure JSON Encoder
         self.encoder = JSONEncoder()
-        self.encoder.dateEncodingStrategy = .iso8601 // Standard for sending data
+        self.encoder.dateEncodingStrategy = .iso8601
     }
 
-    /// Creates an authenticated request using Basic Authentication.
+    /// Creates an authenticated request using the stored Basic Authentication header.
     private func createAuthenticatedRequest(url: URL, method: String = "GET") -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method
-
-        // Basic Auth - credentials should be stored securely (e.g., Keychain)
-        let username = "user" // Placeholder
-        let password = "password" // Placeholder
-        let loginData = "\(username):\(password)".data(using: .utf8)!
-        let base64LoginString = loginData.base64EncodedString()
-
-        request.setValue("Basic \(base64LoginString)", forHTTPHeaderField: "Authorization")
+        request.setValue(basicAuthHeader, forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
         return request
     }
 

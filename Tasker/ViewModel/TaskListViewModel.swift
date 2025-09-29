@@ -26,7 +26,26 @@ class TaskListViewModel: ObservableObject {
     @Published var selectedLabelIDs = Set<UUID>()
     @Published var sortOption: SortOption = .defaultOrder
 
+    // Pagination
+    @Published var currentPage: Int = 0
+    private let itemsPerPage: Int = 5
+
     // MARK: - Computed Properties
+
+    var totalPages: Int {
+        let totalItems = filteredTasks.count
+        return max(1, (totalItems + itemsPerPage - 1) / itemsPerPage)
+    }
+
+    var paginatedTasks: [TodoTask] {
+        let allFiltered = filteredTasks
+        let startIndex = currentPage * itemsPerPage
+        let endIndex = min(startIndex + itemsPerPage, allFiltered.count)
+
+        guard startIndex < endIndex else { return [] }
+
+        return Array(allFiltered[startIndex..<endIndex])
+    }
 
     var filteredTasks: [TodoTask] {
         var tasks = filterTasksByDueDate(allTasks)
@@ -55,9 +74,25 @@ class TaskListViewModel: ObservableObject {
 
     // MARK: - Initializer
 
-    init(networkService: NetworkServiceProtocol = MockNetworkService()) {
+    init(networkService: NetworkServiceProtocol) {
         self.networkService = networkService
         setupDebouncer()
+
+        // Reset pagination whenever filters or sorting change
+        $selectedProjectID
+            .dropFirst()
+            .sink { [weak self] _ in self?.resetPagination() }
+            .store(in: &cancellables)
+
+        $selectedLabelIDs
+            .dropFirst()
+            .sink { [weak self] _ in self?.resetPagination() }
+            .store(in: &cancellables)
+
+        $sortOption
+            .dropFirst()
+            .sink { [weak self] _ in self?.resetPagination() }
+            .store(in: &cancellables)
     }
 
     // MARK: - Public Methods
@@ -98,6 +133,22 @@ class TaskListViewModel: ObservableObject {
             dirtyTaskIDs.insert(task.id)
         }
         updateSubject.send(task)
+    }
+
+    func nextPage() {
+        if currentPage < totalPages - 1 {
+            currentPage += 1
+        }
+    }
+
+    func previousPage() {
+        if currentPage > 0 {
+            currentPage -= 1
+        }
+    }
+
+    func resetPagination() {
+        currentPage = 0
     }
 
     func toggleTaskCompletion(for task: TodoTask) {

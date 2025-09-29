@@ -4,7 +4,7 @@ struct TaskListView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
 
     var body: some View {
-        List(viewModel.filteredTasks) { task in
+        List(viewModel.paginatedTasks) { task in
             TaskRowView(task: task)
         }
         .listStyle(.plain) // Use a plain style for a more compact look
