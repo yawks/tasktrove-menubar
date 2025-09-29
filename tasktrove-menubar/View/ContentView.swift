@@ -199,7 +199,7 @@ struct ContentView: View {
         .animation(.spring(), value: viewModel.errorMessage)
         .frame(minWidth: 450, maxWidth: 450, minHeight: 400, maxHeight: 800)
         .onAppear {
-            viewModel.filterCategory = .all // Reset to default view
+            // Data is now loaded based on persisted settings in ViewModel's init
             if viewModel.allTasks.isEmpty {
                 viewModel.fetchData()
             }

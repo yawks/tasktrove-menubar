@@ -28,7 +28,7 @@ struct PagerView: View {
         }
         .buttonStyle(.plain)
         .padding(.horizontal)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
     }
 }
 
