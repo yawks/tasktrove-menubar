@@ -34,7 +34,7 @@ class TaskListViewModel: ObservableObject {
     // Filtering & Sorting criteria
     @Published var selectedProjectIDs = Set<UUID>()
     @Published var selectedLabelIDs = Set<UUID>()
-    @Published var sortOption: SortOption = .defaultOrder
+    @Published var sortOption: SortOption = .dueDate
     @Published var filterCategory: FilterCategory = .all
 
 
@@ -139,27 +139,43 @@ class TaskListViewModel: ObservableObject {
 
     init(networkService: NetworkServiceProtocol) {
         self.networkService = networkService
+
+        // Load saved settings before setting up subscribers
+        loadSettings()
+
         setupDebouncer()
 
-        // Reset pagination whenever filters or sorting change
+        // Reset pagination and save settings whenever they change
         $selectedProjectIDs
-            .dropFirst()
-            .sink { [weak self] _ in self?.resetPagination() }
+            .dropFirst() // Ignore the initial value set by loadSettings
+            .sink { [weak self] ids in
+                SettingsService.shared.selectedProjectIDs = ids
+                self?.resetPagination()
+            }
             .store(in: &cancellables)
 
         $selectedLabelIDs
             .dropFirst()
-            .sink { [weak self] _ in self?.resetPagination() }
+            .sink { [weak self] ids in
+                SettingsService.shared.selectedLabelIDs = ids
+                self?.resetPagination()
+            }
             .store(in: &cancellables)
 
         $sortOption
             .dropFirst()
-            .sink { [weak self] _ in self?.resetPagination() }
+            .sink { [weak self] option in
+                SettingsService.shared.sortOption = option
+                self?.resetPagination()
+            }
             .store(in: &cancellables)
 
         $filterCategory
             .dropFirst()
-            .sink { [weak self] _ in self?.resetPagination() }
+            .sink { [weak self] category in
+                SettingsService.shared.filterCategory = category
+                self?.resetPagination()
+            }
             .store(in: &cancellables)
     }
 
@@ -236,6 +252,13 @@ class TaskListViewModel: ObservableObject {
     }
 
     // MARK: - Private Methods
+
+    private func loadSettings() {
+        sortOption = SettingsService.shared.sortOption
+        filterCategory = SettingsService.shared.filterCategory
+        selectedProjectIDs = SettingsService.shared.selectedProjectIDs
+        selectedLabelIDs = SettingsService.shared.selectedLabelIDs
+    }
 
     private func setupDebouncer() {
         updateSubject
