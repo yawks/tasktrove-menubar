@@ -179,7 +179,8 @@ class TaskListViewModel: ObservableObject {
     init(networkService: NetworkServiceProtocol) {
         self.networkService = networkService
 
-        // Load saved settings before setting up subscribers
+        // Load cached data first for instant UI, then load user settings
+        loadFromCache()
         loadSettings()
 
         setupDebouncer()
@@ -229,6 +230,9 @@ class TaskListViewModel: ObservableObject {
         Task {
             do {
                 let response = try await networkService.fetchTasks()
+
+                // Save the successful response to the cache
+                SettingsService.shared.cachedAPIResponse = response
 
                 let serverTasks = response.tasks
                 let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id) }

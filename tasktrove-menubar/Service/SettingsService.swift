@@ -10,6 +10,7 @@ class SettingsService {
         static let filterCategory = "settings.filterCategory"
         static let selectedProjectIDs = "settings.selectedProjectIDs"
         static let selectedLabelIDs = "settings.selectedLabelIDs"
+        static let cachedAPIResponse = "cache.apiResponse"
     }
 
     private init() {}
@@ -69,6 +70,34 @@ class SettingsService {
         set {
             let uuidStrings = newValue.map { $0.uuidString }
             defaults.set(uuidStrings, forKey: Keys.selectedLabelIDs)
+        }
+    }
+
+    // MARK: - API Response Cache
+
+    var cachedAPIResponse: APIResponse? {
+        get {
+            guard let data = defaults.data(forKey: Keys.cachedAPIResponse) else { return nil }
+            // Use the same decoder as NetworkService to ensure consistency
+            let decoder = JSONDecoder()
+            let dateFormatter = DateFormatter()
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let dateString = try container.decode(String.self)
+                dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+                if let date = dateFormatter.date(from: dateString) { return date }
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                if let date = dateFormatter.date(from: dateString) { return date }
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Cannot decode date string: \(dateString)")
+            }
+            return try? decoder.decode(APIResponse.self, from: data)
+        }
+        set {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            if let data = try? encoder.encode(newValue) {
+                defaults.set(data, forKey: Keys.cachedAPIResponse)
+            }
         }
     }
 }
