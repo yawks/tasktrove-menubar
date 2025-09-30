@@ -110,11 +110,20 @@ struct TaskRowView: View {
                         .foregroundColor(.secondary)
                 }
             }
+            Image(systemName: "chevron.right")
+                .foregroundColor(.secondary)
         }
         .padding(5)
         .contentShape(Rectangle()) // Make the whole area tappable
         .onTapGesture {
             viewModel.selectedTask = task
+        }
+        .onHover { isHovering in
+            if isHovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
         }
     }
 

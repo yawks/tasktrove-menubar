@@ -46,6 +46,17 @@ struct TaskDetailView: View {
                     TextField("Task title", text: $task.title)
                         .textFieldStyle(.roundedBorder)
 
+                    // Description
+                    Text("Description").font(.caption).foregroundColor(.secondary)
+                    TextEditor(text: Binding(
+                        get: { task.description ?? "" },
+                        set: { task.description = $0 }
+                    ))
+                    .frame(minHeight: 100)
+                    .border(Color.secondary.opacity(0.2), width: 1)
+                    .cornerRadius(4)
+
+
                     // Project Picker
                     Text("Project").font(.caption).foregroundColor(.secondary)
                     Button(action: { showingProjectPicker = true }) {
