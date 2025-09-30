@@ -14,4 +14,9 @@ protocol NetworkServiceProtocol {
     /// - Parameter tasks: An array of dictionaries, where each dictionary represents a partial task update.
     /// - Throws: An error if the network request or encoding fails.
     func updateTasks(_ tasks: [[String: Any]]) async throws
+
+    /// Creates a new task on the server.
+    /// - Parameter taskData: A dictionary representing the new task.
+    /// - Throws: An error if the network request or encoding fails.
+    func createTask(_ taskData: [String: Any]) async throws
 }

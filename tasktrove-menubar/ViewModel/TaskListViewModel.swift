@@ -76,6 +76,41 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
+    func createTask(_ task: TodoTask) async {
+        var taskData: [String: Any] = [
+            "title": task.title,
+            "comments": task.comments
+        ]
+        if let description = task.description, !description.isEmpty {
+            taskData["description"] = description
+        }
+        if let priority = task.priority {
+            taskData["priority"] = priority
+        }
+        if let dueDate = task.dueDate {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            taskData["dueDate"] = formatter.string(from: dueDate)
+        }
+        if let projectId = task.projectId {
+            taskData["projectId"] = projectId
+        }
+        if !task.labels.isEmpty {
+            taskData["labels"] = task.labels
+        }
+
+        Task {
+            do {
+                try await networkService.createTask(taskData)
+                print("Successfully created task.")
+                // Refresh data to see the new task
+                fetchData()
+            } catch {
+                errorMessage = "Failed to create the new task."
+            }
+        }
+    }
+
     var filteredTasks: [TodoTask] {
         var tasks: [TodoTask]
 

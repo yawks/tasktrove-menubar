@@ -4,6 +4,7 @@ struct TaskDetailView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
     @State private var task: TodoTask // Work on a local copy
 
+    var isCreating: Bool
     var onDismiss: () -> Void // Callback to dismiss the view
 
     // State for popovers
@@ -12,8 +13,13 @@ struct TaskDetailView: View {
     @State private var showingDatePicker = false
     @State private var showingPriorityPicker = false
 
-    init(task: TodoTask, onDismiss: @escaping () -> Void) {
+    // State for new items
+    @State private var newSubtaskTitle = ""
+    @State private var newCommentText = ""
+
+    init(task: TodoTask, isCreating: Bool, onDismiss: @escaping () -> Void) {
         _task = State(initialValue: task)
+        self.isCreating = isCreating
         self.onDismiss = onDismiss
     }
 
@@ -22,8 +28,10 @@ struct TaskDetailView: View {
             // Header with Back button and Title
             HStack {
                 Button(action: {
-                    viewModel.updateTaskImmediately(self.task) // Save the local copy
-                    self.onDismiss() // Use the callback to dismiss
+                    if !isCreating {
+                        viewModel.updateTaskImmediately(self.task) // Save if editing
+                    }
+                    self.onDismiss() // Always dismiss
                 }) {
                     Image(systemName: "chevron.left")
                     Text("Tasks")
@@ -32,7 +40,7 @@ struct TaskDetailView: View {
 
                 Spacer()
 
-                Text("Edit Task")
+                Text(isCreating ? "New Task" : "Edit Task")
                     .font(.headline)
             }
             .padding()
@@ -224,23 +232,73 @@ struct TaskDetailView: View {
                     }
 
                     // Subtasks
-                    if !task.subtasks.isEmpty {
-                        Text("Subtasks").font(.caption).foregroundColor(.secondary)
-                        ForEach($task.subtasks) { $subtask in
-                            Button(action: {
-                                $subtask.completed.wrappedValue.toggle()
-                            }) {
-                                HStack {
-                                    Image(systemName: $subtask.completed.wrappedValue ? "checkmark.circle.fill" : "circle")
-                                        .foregroundColor($subtask.completed.wrappedValue ? .green : .secondary)
-                                    Text($subtask.title.wrappedValue)
-                                        .strikethrough($subtask.completed.wrappedValue, color: .secondary)
-                                        .foregroundColor($subtask.completed.wrappedValue ? .secondary : .primary)
-                                }
+                    Text("Subtasks").font(.caption).foregroundColor(.secondary)
+                    ForEach($task.subtasks) { $subtask in
+                        Button(action: {
+                            $subtask.completed.wrappedValue.toggle()
+                        }) {
+                            HStack {
+                                Image(systemName: $subtask.completed.wrappedValue ? "checkmark.circle.fill" : "circle")
+                                    .foregroundColor($subtask.completed.wrappedValue ? .green : .secondary)
+                                Text($subtask.title.wrappedValue)
+                                    .strikethrough($subtask.completed.wrappedValue, color: .secondary)
+                                    .foregroundColor($subtask.completed.wrappedValue ? .secondary : .primary)
                             }
-                            .buttonStyle(.plain)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    // Add new subtask UI
+                    HStack {
+                        TextField("New subtask...", text: $newSubtaskTitle)
+                        Button("Add") {
+                            if !newSubtaskTitle.isEmpty {
+                                let newSubtask = TodoSubtask(id: UUID(), title: newSubtaskTitle, completed: false, order: task.subtasks.count)
+                                task.subtasks.append(newSubtask)
+                                newSubtaskTitle = ""
+                            }
                         }
                     }
+
+                    // Comments
+                    Text("Comments").font(.caption).foregroundColor(.secondary)
+                    if task.comments.isEmpty {
+                        Text("No comments yet.").italic().foregroundColor(.secondary)
+                    } else {
+                        ForEach(task.comments, id: \.self) { comment in
+                            Text(comment)
+                                .padding(8)
+                                .background(Color.secondary.opacity(0.1))
+                                .cornerRadius(8)
+                        }
+                    }
+                    // Add new comment UI
+                    HStack {
+                        TextField("Add a comment...", text: $newCommentText)
+                        Button("Add") {
+                            if !newCommentText.isEmpty {
+                                task.comments.append(newCommentText)
+                                newCommentText = ""
+                            }
+                        }
+                    }
+                }
+                .padding()
+            }
+
+            if isCreating {
+                Divider()
+                HStack {
+                    Spacer()
+                    Button("Cancel") {
+                        self.onDismiss()
+                    }
+                    Button("Create Task") {
+                        Task {
+                            await viewModel.createTask(self.task)
+                            self.onDismiss()
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
                 }
                 .padding()
             }

@@ -8,6 +8,7 @@ struct ContentView: View {
     @State private var showingLabelPicker = false
     @State private var isFiltersExpanded = false
     @State private var showingSortPicker = false
+    @State private var isCreatingTask = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -16,6 +17,14 @@ struct ContentView: View {
                 HStack {
                     Text("Tasks")
                         .font(.title2.bold())
+
+                    Button("New") {
+                        let newTask = TodoTask(id: UUID(), title: "", description: nil, completed: false, priority: 4, dueDate: nil, projectId: nil, sectionId: nil, labels: [], subtasks: [], comments: [], attachments: [], createdAt: Date(), status: "new", recurringMode: nil)
+                        viewModel.selectedTask = newTask
+                        isCreatingTask = true
+                    }
+                    .buttonStyle(.plain)
+
                     Spacer()
 
                     // Sort Button
@@ -83,9 +92,14 @@ struct ContentView: View {
                 Divider()
 
                 if let task = viewModel.selectedTask {
-                    TaskDetailView(task: task, onDismiss: {
-                        viewModel.selectedTask = nil
-                    })
+                    TaskDetailView(
+                        task: task,
+                        isCreating: isCreatingTask,
+                        onDismiss: {
+                            viewModel.selectedTask = nil
+                            isCreatingTask = false
+                        }
+                    )
                 } else {
                     // The list of tasks
                     TaskListView()

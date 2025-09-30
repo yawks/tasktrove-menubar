@@ -117,4 +117,23 @@ class NetworkService: NetworkServiceProtocol {
             throw URLError(.badServerResponse)
         }
     }
+
+    func createTask(_ taskData: [String: Any]) async throws {
+        let url = baseURL.appendingPathComponent("tasks")
+        var request = createAuthenticatedRequest(url: url, method: "POST")
+
+        // Sanitize the payload to ensure all UUIDs are lowercase strings, even nested ones.
+        let sanitizedTask = taskData.mapValues { value in
+            recursivelySanitize(value: value)
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: sanitizedTask, options: [])
+
+        let (_, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            // You might want to decode an error message from the body here
+            throw URLError(.badServerResponse)
+        }
+    }
 }
