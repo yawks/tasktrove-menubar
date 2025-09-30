@@ -80,22 +80,36 @@ class NetworkService: NetworkServiceProtocol {
         return try decoder.decode(APIResponse.self, from: data)
     }
 
+    /// Recursively traverses a dictionary or array and converts all UUID objects to lowercase strings.
+    private func recursivelySanitize(value: Any) -> Any {
+        if let uuid = value as? UUID {
+            return uuid.uuidString.lowercased()
+        } else if var array = value as? [Any] {
+            for i in 0..<array.count {
+                array[i] = recursivelySanitize(value: array[i])
+            }
+            return array
+        } else if var dictionary = value as? [String: Any] {
+            for (key, val) in dictionary {
+                dictionary[key] = recursivelySanitize(value: val)
+            }
+            return dictionary
+        }
+        return value
+    }
+
     func updateTasks(_ tasks: [[String: Any]]) async throws {
         let url = baseURL.appendingPathComponent("tasks")
         var request = createAuthenticatedRequest(url: url, method: "PATCH")
 
-        // Manually serialize the dictionary to JSON data, as it may contain non-Codable types like UUID.
-        // We ensure all values are converted to JSON-compatible types.
-        let a = tasks.map {
-            $0.mapValues { value -> Any in
-                if let uuid = value as? UUID {
-                    return uuid.uuidString
-                }
-                return value
+        // Sanitize the payload to ensure all UUIDs are lowercase strings, even nested ones.
+        let sanitizedTasks = tasks.map { taskDict in
+            return taskDict.mapValues { value in
+                recursivelySanitize(value: value)
             }
         }
 
-        request.httpBody = try JSONSerialization.data(withJSONObject: a, options: [])
+        request.httpBody = try JSONSerialization.data(withJSONObject: sanitizedTasks, options: [])
 
         let (_, response) = try await session.data(for: request)
 

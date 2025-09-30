@@ -306,7 +306,8 @@ class TaskListViewModel: ObservableObject {
         }
         if original.dueDate != modified.dueDate {
             if let date = modified.dueDate {
-                let formatter = ISO8601DateFormatter()
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd"
                 diff["dueDate"] = formatter.string(from: date)
             } else {
                 diff["dueDate"] = NSNull()
