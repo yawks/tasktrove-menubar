@@ -230,6 +230,13 @@ struct ContentView: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+
+            // Detail View Loader
+            if viewModel.isLoadingDetail {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.1))
+            }
         }
         .animation(.spring(), value: viewModel.errorMessage)
         .frame(minWidth: 450, maxWidth: 450, minHeight: 400, maxHeight: 800)

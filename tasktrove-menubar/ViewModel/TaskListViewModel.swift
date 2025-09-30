@@ -39,6 +39,7 @@ class TaskListViewModel: ObservableObject {
 
     // Navigation
     @Published var selectedTask: TodoTask?
+    @Published var isLoadingDetail = false
 
 
     // Pagination
@@ -220,6 +221,24 @@ class TaskListViewModel: ObservableObject {
             dirtyTaskIDs.insert(task.id)
         }
         updateSubject.send(task)
+    }
+
+    func updateTaskImmediately(_ task: TodoTask) {
+        // Update the local task list immediately
+        if let index = allTasks.firstIndex(where: { $0.id == task.id }) {
+            allTasks[index] = task
+        }
+
+        // Send the update to the server immediately
+        Task {
+            do {
+                try await networkService.updateTasks([task])
+                print("Successfully updated task \(task.id).")
+                self.dirtyTaskIDs.remove(task.id)
+            } catch {
+                errorMessage = NSLocalizedString("error_update_failed", comment: "Error message for network update failure")
+            }
+        }
     }
 
     func nextPage() {

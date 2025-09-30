@@ -116,7 +116,12 @@ struct TaskRowView: View {
         .padding(5)
         .contentShape(Rectangle()) // Make the whole area tappable
         .onTapGesture {
-            viewModel.selectedTask = task
+            viewModel.isLoadingDetail = true
+            // A short delay to allow the UI to update and show the loader
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                viewModel.selectedTask = task
+                viewModel.isLoadingDetail = false
+            }
         }
         .onHover { isHovering in
             if isHovering {

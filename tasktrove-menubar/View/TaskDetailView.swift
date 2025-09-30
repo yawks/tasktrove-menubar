@@ -22,7 +22,7 @@ struct TaskDetailView: View {
             // Header with Back button and Title
             HStack {
                 Button(action: {
-                    viewModel.updateTask(self.task) // Save the local copy
+                    viewModel.updateTaskImmediately(self.task) // Save the local copy
                     self.onDismiss() // Use the callback to dismiss
                 }) {
                     Image(systemName: "chevron.left")
