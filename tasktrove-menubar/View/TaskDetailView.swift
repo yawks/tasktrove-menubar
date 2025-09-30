@@ -61,8 +61,13 @@ struct TaskDetailView: View {
                         set: { task.description = $0 }
                     ))
                     .frame(minHeight: 100)
-                    .border(Color.secondary.opacity(0.2), width: 1)
+                    .padding(4) // Internal padding
+                    .background(Color.clear)
                     .cornerRadius(4)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
+                    )
 
 
                     // Project Picker

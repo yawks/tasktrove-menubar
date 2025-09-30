@@ -23,7 +23,7 @@ struct ContentView: View {
                         viewModel.selectedTask = newTask
                         isCreatingTask = true
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.bordered)
 
                     Spacer()
 
