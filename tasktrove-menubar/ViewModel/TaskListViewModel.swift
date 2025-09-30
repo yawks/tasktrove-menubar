@@ -231,21 +231,24 @@ class TaskListViewModel: ObservableObject {
             do {
                 let response = try await networkService.fetchTasks()
 
-                // Save the successful response to the cache
-                SettingsService.shared.cachedAPIResponse = response
+                // Defensive update: Only replace existing data if the new response is not empty,
+                // or if there was no data to begin with. This prevents a faulty empty response
+                // from clearing a valid cache.
+                if !response.tasks.isEmpty || self.allTasks.isEmpty {
+                    SettingsService.shared.cachedAPIResponse = response
 
-                let serverTasks = response.tasks
-                let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id) }
-                let dirtyTasksByID = Dictionary(uniqueKeysWithValues: dirtyTasks.map { ($0.id, $0) })
+                    let serverTasks = response.tasks
+                    let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id) }
+                    let dirtyTasksByID = Dictionary(uniqueKeysWithValues: dirtyTasks.map { ($0.id, $0) })
 
-                let mergedTasks = serverTasks.map { serverTask in
-                    return dirtyTasksByID[serverTask.id] ?? serverTask
+                    let mergedTasks = serverTasks.map { serverTask in
+                        return dirtyTasksByID[serverTask.id] ?? serverTask
+                    }
+
+                    self.allTasks = mergedTasks
+                    self.allProjects = response.projects
+                    self.allLabels = response.labels
                 }
-
-                self.allTasks = mergedTasks
-                self.allProjects = response.projects
-                self.allLabels = response.labels
-
             } catch {
                 self.errorMessage = NSLocalizedString("error_fetch_failed", comment: "Error message for network fetch failure")
             }
