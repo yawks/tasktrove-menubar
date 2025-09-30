@@ -80,11 +80,22 @@ class NetworkService: NetworkServiceProtocol {
         return try decoder.decode(APIResponse.self, from: data)
     }
 
-    func updateTasks(_ tasks: [TodoTask]) async throws {
+    func updateTasks(_ tasks: [[String: Any]]) async throws {
         let url = baseURL.appendingPathComponent("tasks")
         var request = createAuthenticatedRequest(url: url, method: "PATCH")
 
-        request.httpBody = try encoder.encode(tasks)
+        // Manually serialize the dictionary to JSON data, as it may contain non-Codable types like UUID.
+        // We ensure all values are converted to JSON-compatible types.
+        let a = tasks.map {
+            $0.mapValues { value -> Any in
+                if let uuid = value as? UUID {
+                    return uuid.uuidString
+                }
+                return value
+            }
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: a, options: [])
 
         let (_, response) = try await session.data(for: request)
 

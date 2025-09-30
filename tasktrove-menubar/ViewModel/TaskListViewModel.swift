@@ -223,18 +223,31 @@ class TaskListViewModel: ObservableObject {
         updateSubject.send(task)
     }
 
-    func updateTaskImmediately(_ task: TodoTask) {
+    func updateTaskImmediately(_ modifiedTask: TodoTask) {
+        guard let originalTask = allTasks.first(where: { $0.id == modifiedTask.id }) else {
+            print("Error: Could not find original task to create a diff.")
+            return
+        }
+
+        let diff = createDiff(original: originalTask, modified: modifiedTask)
+
         // Update the local task list immediately
-        if let index = allTasks.firstIndex(where: { $0.id == task.id }) {
-            allTasks[index] = task
+        if let index = allTasks.firstIndex(where: { $0.id == modifiedTask.id }) {
+            allTasks[index] = modifiedTask
+        }
+
+        // Only send the update if there are actual changes
+        guard diff.count > 1 else { // > 1 because 'id' is always present
+            print("No changes detected for task \(modifiedTask.id). Skipping update.")
+            return
         }
 
         // Send the update to the server immediately
         Task {
             do {
-                try await networkService.updateTasks([task])
-                print("Successfully updated task \(task.id).")
-                self.dirtyTaskIDs.remove(task.id)
+                try await networkService.updateTasks([diff])
+                print("Successfully updated task \(modifiedTask.id).")
+                self.dirtyTaskIDs.remove(modifiedTask.id)
             } catch {
                 errorMessage = NSLocalizedString("error_update_failed", comment: "Error message for network update failure")
             }
@@ -274,6 +287,47 @@ class TaskListViewModel: ObservableObject {
     }
 
     // MARK: - Private Methods
+
+    private func createDiff(original: TodoTask, modified: TodoTask) -> [String: Any] {
+        var diff = [String: Any]()
+        diff["id"] = modified.id
+
+        if original.title != modified.title {
+            diff["title"] = modified.title
+        }
+        if original.description != modified.description {
+            diff["description"] = modified.description ?? NSNull()
+        }
+        if original.completed != modified.completed {
+            diff["completed"] = modified.completed
+        }
+        if original.priority != modified.priority {
+            diff["priority"] = modified.priority ?? NSNull()
+        }
+        if original.dueDate != modified.dueDate {
+            if let date = modified.dueDate {
+                let formatter = ISO8601DateFormatter()
+                diff["dueDate"] = formatter.string(from: date)
+            } else {
+                diff["dueDate"] = NSNull()
+            }
+        }
+        if original.projectId != modified.projectId {
+            diff["projectId"] = modified.projectId ?? NSNull()
+        }
+        if Set(original.labels) != Set(modified.labels) {
+            diff["labels"] = modified.labels
+        }
+        if original.subtasks != modified.subtasks {
+            // The API expects an array of dictionaries for subtasks
+            let subtaskDicts = modified.subtasks.map { subtask in
+                return ["id": subtask.id, "title": subtask.title, "completed": subtask.completed, "order": subtask.order]
+            }
+            diff["subtasks"] = subtaskDicts
+        }
+
+        return diff
+    }
 
     private func loadSettings() {
         sortOption = SettingsService.shared.sortOption

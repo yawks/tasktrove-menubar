@@ -18,7 +18,7 @@ struct TodoTask: Codable, Identifiable {
     let recurringMode: String?
 }
 
-struct TodoSubtask: Codable, Identifiable {
+struct TodoSubtask: Codable, Identifiable, Equatable {
     let id: UUID
     var title: String
     var completed: Bool

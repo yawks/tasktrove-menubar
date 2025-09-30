@@ -11,7 +11,7 @@ protocol NetworkServiceProtocol {
     func fetchTasks() async throws -> APIResponse
 
     /// Updates one or more tasks on the server.
-    /// - Parameter tasks: An array of `TodoTask` objects to be updated.
+    /// - Parameter tasks: An array of dictionaries, where each dictionary represents a partial task update.
     /// - Throws: An error if the network request or encoding fails.
-    func updateTasks(_ tasks: [TodoTask]) async throws
+    func updateTasks(_ tasks: [[String: Any]]) async throws
 }
