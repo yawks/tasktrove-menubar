@@ -15,6 +15,7 @@ struct TaskDetailView: View {
             // Header with Back button and Title
             HStack {
                 Button(action: {
+                    viewModel.updateTask(task) // Save changes
                     viewModel.selectedTask = nil // Go back to the list
                 }) {
                     Image(systemName: "chevron.left")
@@ -137,7 +138,7 @@ struct TaskDetailView: View {
                                     showingDatePicker = false
                                 }) {
                                     HStack {
-                                        Image(systemName: "arrow.up.and.sun.max.fill").foregroundColor(.orange)
+                                        Image(systemName: "sunrise.fill").foregroundColor(.orange)
                                         Text("Tomorrow")
                                     }
                                 }
@@ -225,10 +226,6 @@ struct TaskDetailView: View {
                 }
                 .padding()
             }
-        }
-        .onDisappear {
-            // When the view disappears (e.g., user clicks away), save the changes.
-            viewModel.updateTask(task)
         }
     }
 
