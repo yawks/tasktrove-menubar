@@ -48,4 +48,10 @@ class MockNetworkService: NetworkServiceProtocol {
         try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
         print("Mock: Pretended to update \(tasks.count) tasks.")
     }
+
+    func createTask(_ taskData: [String : Any]) async throws {
+        // Simulate a successful network call with a short delay.
+        try await Task.sleep(nanoseconds: 300_000_000) // 0.3 seconds
+        print("Mock: Pretended to create a new task.")
+    }
 }

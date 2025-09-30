@@ -16,9 +16,15 @@ class SettingsViewModel: ObservableObject {
     private let configService: ConfigurationService
 
     // MARK: - Initializer
-    init(configService: ConfigurationService = .shared) {
+    // Designated initializer for dependency injection
+    init(configService: ConfigurationService) {
         self.configService = configService
         loadInitialValues()
+    }
+
+    // Convenience initializer for SwiftUI previews and default usage
+    convenience init() {
+        self.init(configService: .shared)
     }
 
     /// Loads existing configuration to pre-fill the fields.
