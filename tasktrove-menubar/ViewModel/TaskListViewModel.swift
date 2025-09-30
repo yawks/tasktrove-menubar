@@ -350,12 +350,23 @@ class TaskListViewModel: ObservableObject {
     private func sendUpdate(tasks: [TodoTask]) {
         guard !tasks.isEmpty else { return }
 
+        let diffs = tasks.compactMap { modifiedTask -> [String: Any]? in
+            guard let originalTask = self.allTasks.first(where: { $0.id == modifiedTask.id }) else { return nil }
+            let diff = self.createDiff(original: originalTask, modified: modifiedTask)
+            return diff.count > 1 ? diff : nil
+        }
+
+        guard !diffs.isEmpty else {
+            print("No effective changes to update.")
+            return
+        }
+
         let taskIDsToUpdate = tasks.map { $0.id }
 
         Task {
             do {
-                try await networkService.updateTasks(tasks)
-                print("Successfully updated \(tasks.count) tasks.")
+                try await networkService.updateTasks(diffs)
+                print("Successfully updated \(diffs.count) tasks.")
                 for id in taskIDsToUpdate {
                     self.dirtyTaskIDs.remove(id)
                 }
