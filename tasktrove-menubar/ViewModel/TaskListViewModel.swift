@@ -231,24 +231,29 @@ class TaskListViewModel: ObservableObject {
             do {
                 let response = try await networkService.fetchTasks()
 
-                // Defensive update: Only replace existing data if the new response is not empty,
-                // or if there was no data to begin with. This prevents a faulty empty response
-                // from clearing a valid cache.
-                if !response.tasks.isEmpty || self.allTasks.isEmpty {
-                    SettingsService.shared.cachedAPIResponse = response
-
-                    let serverTasks = response.tasks
-                    let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id) }
-                    let dirtyTasksByID = Dictionary(uniqueKeysWithValues: dirtyTasks.map { ($0.id, $0) })
-
-                    let mergedTasks = serverTasks.map { serverTask in
-                        return dirtyTasksByID[serverTask.id] ?? serverTask
-                    }
-
-                    self.allTasks = mergedTasks
-                    self.allProjects = response.projects
-                    self.allLabels = response.labels
+                // Stricter defensive update: If the server returns an empty list of tasks,
+                // ignore it completely to avoid overwriting a valid cache with a faulty response.
+                guard !response.tasks.isEmpty else {
+                    print("Received an empty task list from the server. Ignoring to protect cache.")
+                    self.isLoading = false
+                    return
                 }
+
+                // If we get here, the response is valid and non-empty.
+                SettingsService.shared.cachedAPIResponse = response
+
+                let serverTasks = response.tasks
+                let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id) }
+                let dirtyTasksByID = Dictionary(uniqueKeysWithValues: dirtyTasks.map { ($0.id, $0) })
+
+                let mergedTasks = serverTasks.map { serverTask in
+                    return dirtyTasksByID[serverTask.id] ?? serverTask
+                }
+
+                self.allTasks = mergedTasks
+                self.allProjects = response.projects
+                self.allLabels = response.labels
+
             } catch {
                 self.errorMessage = NSLocalizedString("error_fetch_failed", comment: "Error message for network fetch failure")
             }
