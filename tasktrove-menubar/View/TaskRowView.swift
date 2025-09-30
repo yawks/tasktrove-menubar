@@ -101,7 +101,7 @@ struct TaskRowView: View {
 
                 // Due Date
                 if let dueDate = task.dueDate {
-                    Text(dueDate, style: .date)
+                    Text(formatRelativeDate(dueDate))
                         .font(.caption)
                         .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
                 } else {
@@ -134,6 +134,20 @@ struct TaskRowView: View {
 
     private func isOverdue(_ date: Date) -> Bool {
         return Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: Date())
+    }
+
+    private func formatRelativeDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInYesterday(date) {
+            return "hier"
+        }
+        if calendar.isDateInToday(date) {
+            return "aujourd'hui"
+        }
+        if calendar.isDateInTomorrow(date) {
+            return "demain"
+        }
+        return date.formatted(date: .abbreviated, time: .omitted)
     }
 
     // MARK: - Inline Editing Methods
