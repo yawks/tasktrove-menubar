@@ -327,6 +327,14 @@ class TaskListViewModel: ObservableObject {
 
     // MARK: - Private Methods
 
+    private func loadFromCache() {
+        if let cachedResponse = SettingsService.shared.cachedAPIResponse {
+            self.allTasks = cachedResponse.tasks
+            self.allProjects = cachedResponse.projects
+            self.allLabels = cachedResponse.labels
+        }
+    }
+
     private func createDiff(original: TodoTask, modified: TodoTask) -> [String: Any] {
         var diff = [String: Any]()
         diff["id"] = modified.id
