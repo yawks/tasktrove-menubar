@@ -82,8 +82,10 @@ struct ContentView: View {
 
                 Divider()
 
-                if let taskBinding = Binding($viewModel.selectedTask) {
-                    TaskDetailView(task: taskBinding)
+                if let task = viewModel.selectedTask {
+                    TaskDetailView(task: task, onDismiss: {
+                        viewModel.selectedTask = nil
+                    })
                 } else {
                     // The list of tasks
                     TaskListView()

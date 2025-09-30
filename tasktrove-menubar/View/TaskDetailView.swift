@@ -2,7 +2,9 @@ import SwiftUI
 
 struct TaskDetailView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
-    @Binding var task: TodoTask
+    @State private var task: TodoTask // Work on a local copy
+
+    var onDismiss: () -> Void // Callback to dismiss the view
 
     // State for popovers
     @State private var showingProjectPicker = false
@@ -10,13 +12,18 @@ struct TaskDetailView: View {
     @State private var showingDatePicker = false
     @State private var showingPriorityPicker = false
 
+    init(task: TodoTask, onDismiss: @escaping () -> Void) {
+        _task = State(initialValue: task)
+        self.onDismiss = onDismiss
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with Back button and Title
             HStack {
                 Button(action: {
-                    viewModel.updateTask(task) // Save changes
-                    viewModel.selectedTask = nil // Go back to the list
+                    viewModel.updateTask(self.task) // Save the local copy
+                    self.onDismiss() // Use the callback to dismiss
                 }) {
                     Image(systemName: "chevron.left")
                     Text("Tasks")
@@ -43,7 +50,7 @@ struct TaskDetailView: View {
                     Text("Project").font(.caption).foregroundColor(.secondary)
                     Button(action: { showingProjectPicker = true }) {
                         HStack {
-                            if let project = viewModel.project(for: task) {
+                            if let project = viewModel.project(for: self.task) {
                                 Image(systemName: "folder.fill")
                                     .foregroundColor(Color(hex: project.color) ?? .secondary)
                                 Text(project.name)
@@ -74,13 +81,13 @@ struct TaskDetailView: View {
                     Text("Labels").font(.caption).foregroundColor(.secondary)
                     Button(action: { showingLabelPicker = true }) {
                          HStack {
-                            if task.labels.isEmpty {
+                            if self.task.labels.isEmpty {
                                 Text("No Labels")
                                 Spacer()
                             } else {
                                 ScrollView(.horizontal, showsIndicators: false) {
                                     HStack {
-                                        ForEach(viewModel.labels(for: task)) { label in
+                                        ForEach(viewModel.labels(for: self.task)) { label in
                                             ItemPillView(item: label, iconName: "tag.fill")
                                         }
                                     }
@@ -97,8 +104,8 @@ struct TaskDetailView: View {
                             items: viewModel.allLabels,
                             iconName: "tag.fill",
                             selections: Binding(
-                                get: { Set(task.labels) },
-                                set: { task.labels = Array($0) }
+                                get: { Set(self.task.labels) },
+                                set: { self.task.labels = Array($0) }
                             )
                         )
                     }
@@ -107,10 +114,10 @@ struct TaskDetailView: View {
                     Text("Due Date").font(.caption).foregroundColor(.secondary)
                     Button(action: { showingDatePicker = true }) {
                         HStack {
-                            Text(task.dueDate != nil ? task.dueDate!.formatted(date: .long, time: .omitted) : "No due date")
+                            Text(self.task.dueDate != nil ? self.task.dueDate!.formatted(date: .long, time: .omitted) : "No due date")
                             Spacer()
-                            if task.dueDate != nil {
-                                Button(action: { task.dueDate = nil }) {
+                            if self.task.dueDate != nil {
+                                Button(action: { self.task.dueDate = nil }) {
                                     Image(systemName: "xmark.circle.fill")
                                 }
                                 .buttonStyle(.plain)
@@ -124,7 +131,7 @@ struct TaskDetailView: View {
                         VStack {
                             HStack(spacing: 12) {
                                 Button(action: {
-                                    task.dueDate = Date()
+                                    self.task.dueDate = Date()
                                     showingDatePicker = false
                                 }) {
                                     HStack {
@@ -134,7 +141,7 @@ struct TaskDetailView: View {
                                 }
 
                                 Button(action: {
-                                    task.dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())
+                                    self.task.dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())
                                     showingDatePicker = false
                                 }) {
                                     HStack {
@@ -144,7 +151,7 @@ struct TaskDetailView: View {
                                 }
 
                                 Button(action: {
-                                    task.dueDate = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: Date())
+                                    self.task.dueDate = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: Date())
                                     showingDatePicker = false
                                 }) {
                                      HStack {
@@ -159,8 +166,8 @@ struct TaskDetailView: View {
                             DatePicker(
                                 "Due Date",
                                 selection: Binding(
-                                    get: { task.dueDate ?? Date() },
-                                    set: { task.dueDate = $0 }
+                                    get: { self.task.dueDate ?? Date() },
+                                    set: { self.task.dueDate = $0 }
                                 ),
                                 displayedComponents: .date
                             )
@@ -176,7 +183,7 @@ struct TaskDetailView: View {
                     Text("Priority").font(.caption).foregroundColor(.secondary)
                     Button(action: { showingPriorityPicker = true }) {
                         HStack {
-                            priorityView(for: task.priority ?? 4)
+                            priorityView(for: self.task.priority ?? 4)
                             Spacer()
                             Image(systemName: "chevron.right")
                         }
@@ -187,13 +194,13 @@ struct TaskDetailView: View {
                         VStack(alignment: .leading) {
                             ForEach(1...4, id: \.self) { priority in
                                 Button(action: {
-                                    task.priority = priority
+                                    self.task.priority = priority
                                     showingPriorityPicker = false
                                 }) {
                                     HStack {
                                         priorityView(for: priority)
                                         Spacer()
-                                        if task.priority == priority || (task.priority == nil && priority == 4) {
+                                        if self.task.priority == priority || (self.task.priority == nil && priority == 4) {
                                             Image(systemName: "checkmark")
                                         }
                                     }
