@@ -185,6 +185,9 @@ class TaskListViewModel: ObservableObject {
 
         setupDebouncer()
 
+        // Fetch fresh data when the view model is created
+        fetchData()
+
         // Reset pagination and save settings whenever they change
         $selectedProjectIDs
             .dropFirst() // Ignore the initial value set by loadSettings

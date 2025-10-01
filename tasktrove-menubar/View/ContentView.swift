@@ -254,11 +254,6 @@ struct ContentView: View {
         }
         .animation(.spring(), value: viewModel.errorMessage)
         .frame(minWidth: 450, maxWidth: 450, minHeight: 400, maxHeight: 800)
-        .onAppear {
-            // Always fetch data on appear to get the latest updates.
-            // The view will initially show cached data.
-            viewModel.fetchData()
-        }
         .onReceive(Timer.publish(every: 300, on: .main, in: .common).autoconnect()) { _ in
             // Only refresh if there's no error banner shown and not currently loading
             if viewModel.errorMessage == nil && !viewModel.isLoading {
