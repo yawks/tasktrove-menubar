@@ -88,17 +88,46 @@ struct TaskDetailView: View {
                     }
                     .buttonStyle(.plain)
                     .popover(isPresented: $showingProjectPicker) {
-                        // A simple picker for single project selection
-                        VStack {
-                            Picker("Project", selection: $task.projectId) {
-                                Text("No Project").tag(nil as UUID?)
-                                ForEach(viewModel.allProjects) { project in
-                                    Text(project.name).tag(project.id as UUID?)
+                        VStack(alignment: .leading) {
+                            // "No Project" option
+                            Button(action: {
+                                task.projectId = nil
+                                showingProjectPicker = false
+                            }) {
+                                HStack {
+                                    Image(systemName: "folder")
+                                    Text("No Project")
+                                    Spacer()
+                                    if task.projectId == nil {
+                                        Image(systemName: "checkmark")
+                                    }
                                 }
                             }
-                            .pickerStyle(.inline)
-                            Button("Done") { showingProjectPicker = false }.padding()
-                        }.frame(width: 200)
+                            .buttonStyle(.plain)
+
+                            Divider()
+
+                            // List of projects
+                            ForEach(viewModel.allProjects) { project in
+                                Button(action: {
+                                    task.projectId = project.id
+                                    showingProjectPicker = false
+                                }) {
+                                    HStack {
+                                        Image(systemName: "folder.fill")
+                                            .foregroundColor(Color(hex: project.color) ?? .secondary)
+                                        Text(project.name)
+                                        Spacer()
+                                        if task.projectId == project.id {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding()
+                        .frame(width: 250)
                     }
 
                     // Label Picker

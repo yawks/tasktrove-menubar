@@ -25,21 +25,12 @@ struct TaskRowView: View {
                     TextField("Edit title", text: $editingTitle)
                         .textFieldStyle(.plain)
                         .focused($isTitleFieldFocused)
-                        .onSubmit {
-                            commitEdit()
-                        }
-                        .onAppear {
-                            // Select all text when field appears
-                            // This requires a bit more work, often involving AppKit integration.
-                            // For now, focusing is sufficient.
-                        }
+                        .onSubmit(commitEdit)
                 } else {
                     Text(task.title)
                         .fontWeight(.semibold)
                         .lineLimit(2)
-                        .onTapGesture(count: 2) {
-                            startEditing()
-                        }
+                        .onTapGesture(count: 2, perform: startEditing)
                 }
 
                 // Subtitle: Project & Section
@@ -60,56 +51,48 @@ struct TaskRowView: View {
                     .padding(.top, 2)
                 }
 
+                // Due Date & Priority
+                HStack(spacing: 12) {
+                    if let dueDate = task.dueDate {
+                        HStack(spacing: 4) {
+                            Image(systemName: "calendar")
+                            Text(formatRelativeDate(dueDate))
+                        }
+                        .font(.caption)
+                        .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
+                    }
+
+                    if task.priority != nil && task.priority != 4 {
+                        priorityView(for: task.priority ?? 4)
+                            .font(.caption)
+                    }
+                }
+                .padding(.top, 2)
+
                 // Subtasks Disclosure Group
                 if !task.subtasks.isEmpty {
-                    HStack {
-                        DisclosureGroup {
-                            VStack(alignment: .leading, spacing: 8) {
-                                ForEach(task.subtasks) { subtask in
-                                    SubtaskRowView(subtask: subtask, task: task)
-                                }
+                    DisclosureGroup {
+                        VStack(alignment: .leading, spacing: 8) {
+                            ForEach(task.subtasks) { subtask in
+                                SubtaskRowView(subtask: subtask, task: task)
                             }
-                            .padding(.top, 8)
-                        } label: {
-                            Text("\(task.subtasks.count) subtasks")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
                         }
-                        .accentColor(.secondary)
-
-                        Spacer()
-
-                        Image(systemName: "checklist")
-                        Text("\(task.subtasks.filter { $0.completed }.count)/\(task.subtasks.count)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        .padding(.leading, 12)
+                        .padding(.top, 8)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checklist")
+                            Text("\(task.subtasks.filter { $0.completed }.count)/\(task.subtasks.count)")
+                        }
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                     }
+                    .accentColor(.secondary)
                 }
             }
 
             Spacer()
 
-            // Priority & Due Date
-            VStack(alignment: .trailing, spacing: 4) {
-                // Priority (e.g., P1, P2)
-                Text(String(format: NSLocalizedString("priority_format", comment: "Priority format string"), task.priority ?? "N/A"))
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .padding(.horizontal, 4)
-                    .background(Color.orange.opacity(0.2))
-                    .cornerRadius(4)
-
-                // Due Date
-                if let dueDate = task.dueDate {
-                    Text(formatRelativeDate(dueDate))
-                        .font(.caption)
-                        .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
-                } else {
-                    Text(NSLocalizedString("No due date", comment: "No due date placeholder"))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
             Image(systemName: "chevron.right")
                 .foregroundColor(.secondary)
         }
@@ -134,6 +117,29 @@ struct TaskRowView: View {
 
     private func isOverdue(_ date: Date) -> Bool {
         return Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: Date())
+    }
+
+    @ViewBuilder
+    private func priorityView(for priority: Int) -> some View {
+        switch priority {
+        case 1:
+            HStack(spacing: 2) {
+                Image(systemName: "flag.fill").foregroundColor(.red)
+                Text("P1")
+            }
+        case 2:
+            HStack(spacing: 2) {
+                Image(systemName: "flag.fill").foregroundColor(.orange)
+                Text("P2")
+            }
+        case 3:
+            HStack(spacing: 2) {
+                Image(systemName: "flag.fill").foregroundColor(.blue)
+                Text("P3")
+            }
+        default:
+            EmptyView()
+        }
     }
 
     private func formatRelativeDate(_ date: Date) -> String {
