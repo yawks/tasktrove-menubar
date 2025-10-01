@@ -323,7 +323,7 @@ class TaskListViewModel: ObservableObject {
     func toggleTaskCompletion(for task: TodoTask) {
         var mutatedTask = task
         mutatedTask.completed.toggle()
-        updateTask(mutatedTask)
+        updateTaskImmediately(mutatedTask)
     }
 
     func toggleSubtaskCompletion(for subtask: TodoSubtask, in parentTask: TodoTask) {
