@@ -9,94 +9,92 @@ struct TaskRowView: View {
     @State private var editingTitle: String = ""
     @FocusState private var isTitleFieldFocused: Bool
 
+    // State for hover effect
+    @State private var isHovering = false
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Checkbox
-            Image(systemName: task.completed ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(task.completed ? .green : .secondary)
-                .font(.title2)
-                .onTapGesture {
-                    viewModel.toggleTaskCompletion(for: task)
-                }
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                // Checkbox
+                Image(systemName: task.completed ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(task.completed ? .green : .secondary)
+                    .font(.title2)
+                    .onTapGesture {
+                        viewModel.toggleTaskCompletion(for: task)
+                    }
 
-            VStack(alignment: .leading, spacing: 4) {
-                // Editable Title
-                if isEditing {
-                    TextField("Edit title", text: $editingTitle)
-                        .textFieldStyle(.plain)
-                        .focused($isTitleFieldFocused)
-                        .onSubmit(commitEdit)
-                } else {
-                    Text(task.title)
-                        .fontWeight(.semibold)
-                        .lineLimit(2)
-                        .onTapGesture(count: 2, perform: startEditing)
-                }
+                VStack(alignment: .leading, spacing: 4) {
+                    // Editable Title
+                    if isEditing {
+                        TextField("Edit title", text: $editingTitle)
+                            .textFieldStyle(.plain)
+                            .focused($isTitleFieldFocused)
+                            .onSubmit(commitEdit)
+                    } else {
+                        Text(task.title)
+                            .fontWeight(.semibold)
+                            .lineLimit(2)
+                            .onTapGesture(count: 2, perform: startEditing)
+                    }
 
-                // Subtitle: Project & Section
-                if let project = viewModel.project(for: task), let section = viewModel.section(for: task) {
-                    Text(String(format: NSLocalizedString("task_subtitle_format", comment: "Project • Section"), project.name, section.name))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                    // Subtitle: Project & Section
+                    if let project = viewModel.project(for: task), let section = viewModel.section(for: task) {
+                        Text(String(format: NSLocalizedString("task_subtitle_format", comment: "Project • Section"), project.name, section.name))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
 
-                // Labels
-                let labels = viewModel.labels(for: task)
-                if !labels.isEmpty {
-                    HStack {
-                        ForEach(labels) { label in
-                            LabelPill(label: label)
+                    // Single line for all metadata
+                    HStack(spacing: 8) {
+                        // Labels
+                        let labels = viewModel.labels(for: task)
+                        if !labels.isEmpty {
+                            HStack {
+                                ForEach(labels.prefix(2)) { label in // Limit to 2 labels to avoid overflow
+                                    LabelPill(label: label)
+                                }
+                            }
+                        }
+
+                        Spacer()
+
+                        // Subtask Indicator
+                        if !task.subtasks.isEmpty {
+                            HStack(spacing: 2) {
+                                Image(systemName: "checklist")
+                                Text("\(task.subtasks.filter { $0.completed }.count)/\(task.subtasks.count)")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+
+                        // Priority
+                        if task.priority != nil && task.priority != 4 {
+                            priorityView(for: task.priority ?? 4)
+                                .font(.caption)
+                        }
+
+                        // Due Date
+                        if let dueDate = task.dueDate {
+                            HStack(spacing: 4) {
+                                Image(systemName: "calendar")
+                                Text(formatRelativeDate(dueDate))
+                            }
+                            .font(.caption)
+                            .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
                         }
                     }
                     .padding(.top, 2)
                 }
 
-                // Due Date & Priority
-                HStack(spacing: 12) {
-                    if let dueDate = task.dueDate {
-                        HStack(spacing: 4) {
-                            Image(systemName: "calendar")
-                            Text(formatRelativeDate(dueDate))
-                        }
-                        .font(.caption)
-                        .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
-                    }
-
-                    if task.priority != nil && task.priority != 4 {
-                        priorityView(for: task.priority ?? 4)
-                            .font(.caption)
-                    }
-                }
-                .padding(.top, 2)
-
-                // Subtasks Disclosure Group
-                if !task.subtasks.isEmpty {
-                    DisclosureGroup {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(task.subtasks) { subtask in
-                                SubtaskRowView(subtask: subtask, task: task)
-                            }
-                        }
-                        .padding(.leading, 12)
-                        .padding(.top, 8)
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checklist")
-                            Text("\(task.subtasks.filter { $0.completed }.count)/\(task.subtasks.count)")
-                        }
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    }
-                    .accentColor(.secondary)
-                }
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
             }
+            .padding(5)
 
-            Spacer()
-
-            Image(systemName: "chevron.right")
-                .foregroundColor(.secondary)
+            Divider()
         }
-        .padding(5)
+        .background(isHovering ? Color.secondary.opacity(0.1) : Color.clear)
         .contentShape(Rectangle()) // Make the whole area tappable
         .onTapGesture {
             viewModel.isLoadingDetail = true
@@ -106,11 +104,14 @@ struct TaskRowView: View {
                 viewModel.isLoadingDetail = false
             }
         }
-        .onHover { isHovering in
-            if isHovering {
-                NSCursor.pointingHand.push()
-            } else {
-                NSCursor.pop()
+        .onHover { hovering in
+            isHovering = hovering
+            DispatchQueue.main.async {
+                if hovering {
+                    NSCursor.pointingHand.push()
+                } else {
+                    NSCursor.pop()
+                }
             }
         }
     }
