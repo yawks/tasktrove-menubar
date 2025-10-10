@@ -110,6 +110,20 @@ class NetworkService: NetworkServiceProtocol {
         }
 
         request.httpBody = try JSONSerialization.data(withJSONObject: sanitizedTasks, options: [])
+        
+        // --- Début du code pour afficher le corps de la requête ---
+            if let httpBody = request.httpBody {
+                // Tente de convertir les données binaires en une chaîne UTF-8
+                if let jsonString = String(data: httpBody, encoding: .utf8) {
+                    print("➡️ Request HTTP Body (Payload):")
+                    print(jsonString)
+                } else {
+                    print("⚠️ Impossible de décoder le httpBody en tant que chaîne UTF-8.")
+                }
+            } else {
+                print("❌ Le httpBody de la requête est nil.")
+            }
+            // --- Fin du code pour afficher le corps de la requête ---
 
         let (_, response) = try await session.data(for: request)
 
