@@ -9,104 +9,152 @@ struct TaskRowView: View {
     @State private var editingTitle: String = ""
     @FocusState private var isTitleFieldFocused: Bool
 
+    // State for hover effect
+    @State private var isHovering = false
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            // Checkbox
-            Image(systemName: task.completed ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(task.completed ? .green : .secondary)
-                .font(.title2)
-                .onTapGesture {
-                    viewModel.toggleTaskCompletion(for: task)
-                }
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 12) {
+                // Checkbox
+                Image(systemName: task.completed ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(task.completed ? .green : .secondary)
+                    .font(.title2)
+                    .onTapGesture {
+                        viewModel.toggleTaskCompletion(for: task)
+                    }
 
-            VStack(alignment: .leading, spacing: 4) {
-                // Editable Title
-                if isEditing {
-                    TextField("Edit title", text: $editingTitle)
-                        .textFieldStyle(.plain)
-                        .focused($isTitleFieldFocused)
-                        .onSubmit {
-                            commitEdit()
-                        }
-                        .onAppear {
-                            // Select all text when field appears
-                            // This requires a bit more work, often involving AppKit integration.
-                            // For now, focusing is sufficient.
-                        }
-                } else {
-                    Text(task.title)
-                        .fontWeight(.semibold)
-                        .lineLimit(2)
-                        .onTapGesture(count: 2) {
-                            startEditing()
-                        }
-                }
+                VStack(alignment: .leading, spacing: 4) {
+                    // Editable Title
+                    if isEditing {
+                        TextField("Edit title", text: $editingTitle)
+                            .textFieldStyle(.plain)
+                            .focused($isTitleFieldFocused)
+                            .onSubmit(commitEdit)
+                    } else {
+                        Text(task.title)
+                            .fontWeight(.semibold)
+                            .lineLimit(2)
+                            .onTapGesture(count: 2, perform: startEditing)
+                    }
 
-                // Subtitle: Project & Section
-                if let project = viewModel.project(for: task), let section = viewModel.section(for: task) {
-                    Text(String(format: NSLocalizedString("task_subtitle_format", comment: "Project • Section"), project.name, section.name))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
+                    // Subtitle: Project & Section
+                    if let project = viewModel.project(for: task), let section = viewModel.section(for: task) {
+                        Text(String(format: NSLocalizedString("task_subtitle_format", comment: "Project • Section"), project.name, section.name))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
 
-                // Labels
-                let labels = viewModel.labels(for: task)
-                if !labels.isEmpty {
-                    HStack {
-                        ForEach(labels) { label in
-                            LabelPill(label: label)
+                    // Single line for all metadata
+                    HStack(spacing: 8) {
+                        // Labels
+                        let labels = viewModel.labels(for: task)
+                        if !labels.isEmpty {
+                            HStack {
+                                ForEach(labels.prefix(2)) { label in // Limit to 2 labels to avoid overflow
+                                    LabelPill(label: label)
+                                }
+                            }
+                        }
+
+                        Spacer()
+
+                        // Subtask Indicator
+                        if !task.subtasks.isEmpty {
+                            HStack(spacing: 2) {
+                                Image(systemName: "checklist")
+                                Text("\(task.subtasks.filter { $0.completed }.count)/\(task.subtasks.count)")
+                            }
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+
+                        // Priority
+                        if task.priority != nil && task.priority != 4 {
+                            priorityView(for: task.priority ?? 4)
+                                .font(.caption)
+                        }
+
+                        // Due Date
+                        if let dueDate = task.dueDate {
+                            HStack(spacing: 4) {
+                                Image(systemName: "calendar")
+                                Text(formatRelativeDate(dueDate))
+                            }
+                            .font(.caption)
+                            .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
                         }
                     }
                     .padding(.top, 2)
                 }
 
-                // Subtasks Disclosure Group
-                if !task.subtasks.isEmpty {
-                    DisclosureGroup {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(task.subtasks) { subtask in
-                                SubtaskRowView(subtask: subtask, task: task)
-                            }
-                        }
-                        .padding(.top, 8)
-                    } label: {
-                        Text("\(task.subtasks.count) subtasks")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    .accentColor(.secondary)
-                }
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.secondary)
             }
+            .padding(5)
 
-            Spacer()
-
-            // Priority & Due Date
-            VStack(alignment: .trailing, spacing: 4) {
-                // Priority (e.g., P1, P2)
-                Text(String(format: NSLocalizedString("priority_format", comment: "Priority format string"), task.priority ?? "N/A"))
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .padding(.horizontal, 4)
-                    .background(Color.orange.opacity(0.2))
-                    .cornerRadius(4)
-
-                // Due Date
-                if let dueDate = task.dueDate {
-                    Text(dueDate, style: .date)
-                        .font(.caption)
-                        .foregroundColor(isOverdue(dueDate) ? .red : .secondary)
+            Divider()
+        }
+        .background(isHovering ? Color.secondary.opacity(0.1) : Color.clear)
+        .contentShape(Rectangle()) // Make the whole area tappable
+        .onTapGesture {
+            viewModel.isLoadingDetail = true
+            // A short delay to allow the UI to update and show the loader
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                viewModel.selectedTask = task
+                viewModel.isLoadingDetail = false
+            }
+        }
+        .onHover { hovering in
+            isHovering = hovering
+            DispatchQueue.main.async {
+                if hovering {
+                    NSCursor.pointingHand.push()
                 } else {
-                    Text(NSLocalizedString("No due date", comment: "No due date placeholder"))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    NSCursor.pop()
                 }
             }
         }
-        .padding(.vertical, 8)
     }
 
     private func isOverdue(_ date: Date) -> Bool {
         return Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: Date())
+    }
+
+    @ViewBuilder
+    private func priorityView(for priority: Int) -> some View {
+        switch priority {
+        case 1:
+            HStack(spacing: 2) {
+                Image(systemName: "flag.fill").foregroundColor(.red)
+                Text("P1")
+            }
+        case 2:
+            HStack(spacing: 2) {
+                Image(systemName: "flag.fill").foregroundColor(.orange)
+                Text("P2")
+            }
+        case 3:
+            HStack(spacing: 2) {
+                Image(systemName: "flag.fill").foregroundColor(.blue)
+                Text("P3")
+            }
+        default:
+            EmptyView()
+        }
+    }
+
+    private func formatRelativeDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInYesterday(date) {
+            return "hier"
+        }
+        if calendar.isDateInToday(date) {
+            return "aujourd'hui"
+        }
+        if calendar.isDateInTomorrow(date) {
+            return "demain"
+        }
+        return date.formatted(date: .abbreviated, time: .omitted)
     }
 
     // MARK: - Inline Editing Methods

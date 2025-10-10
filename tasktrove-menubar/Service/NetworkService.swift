@@ -80,15 +80,73 @@ class NetworkService: NetworkServiceProtocol {
         return try decoder.decode(APIResponse.self, from: data)
     }
 
-    func updateTasks(_ tasks: [TodoTask]) async throws {
+    /// Recursively traverses a dictionary or array and converts all UUID objects to lowercase strings.
+    private func recursivelySanitize(value: Any) -> Any {
+        if let uuid = value as? UUID {
+            return uuid.uuidString.lowercased()
+        } else if var array = value as? [Any] {
+            for i in 0..<array.count {
+                array[i] = recursivelySanitize(value: array[i])
+            }
+            return array
+        } else if var dictionary = value as? [String: Any] {
+            for (key, val) in dictionary {
+                dictionary[key] = recursivelySanitize(value: val)
+            }
+            return dictionary
+        }
+        return value
+    }
+
+    func updateTasks(_ tasks: [[String: Any]]) async throws {
         let url = baseURL.appendingPathComponent("tasks")
         var request = createAuthenticatedRequest(url: url, method: "PATCH")
 
-        request.httpBody = try encoder.encode(tasks)
+        // Sanitize the payload to ensure all UUIDs are lowercase strings, even nested ones.
+        let sanitizedTasks = tasks.map { taskDict in
+            return taskDict.mapValues { value in
+                recursivelySanitize(value: value)
+            }
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: sanitizedTasks, options: [])
+        
+        // --- Début du code pour afficher le corps de la requête ---
+            if let httpBody = request.httpBody {
+                // Tente de convertir les données binaires en une chaîne UTF-8
+                if let jsonString = String(data: httpBody, encoding: .utf8) {
+                    print("➡️ Request HTTP Body (Payload):")
+                    print(jsonString)
+                } else {
+                    print("⚠️ Impossible de décoder le httpBody en tant que chaîne UTF-8.")
+                }
+            } else {
+                print("❌ Le httpBody de la requête est nil.")
+            }
+            // --- Fin du code pour afficher le corps de la requête ---
 
         let (_, response) = try await session.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+    }
+
+    func createTask(_ taskData: [String: Any]) async throws {
+        let url = baseURL.appendingPathComponent("tasks")
+        var request = createAuthenticatedRequest(url: url, method: "POST")
+
+        // Sanitize the payload to ensure all UUIDs are lowercase strings, even nested ones.
+        let sanitizedTask = taskData.mapValues { value in
+            recursivelySanitize(value: value)
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: sanitizedTask, options: [])
+
+        let (_, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse, (200...299).contains(httpResponse.statusCode) else {
+            // You might want to decode an error message from the body here
             throw URLError(.badServerResponse)
         }
     }

@@ -1,0 +1,1 @@
+hdiutil create -volname "TaskTroveMenuBar" -srcfolder ./tasktrove-menubar.app  -ov -format UDZO ~/Desktop/TaskTroveMenuBar.dmg

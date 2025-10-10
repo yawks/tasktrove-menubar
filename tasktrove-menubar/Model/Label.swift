@@ -1,6 +1,6 @@
 import Foundation
 
-struct Label: Codable, Identifiable {
+struct Label: Codable, Identifiable, Hashable, Equatable, SelectableItem {
     let id: UUID
     let name: String
     let slug: String

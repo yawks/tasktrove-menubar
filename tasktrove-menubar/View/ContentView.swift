@@ -3,21 +3,86 @@ import Combine
 
 struct ContentView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
+    @State private var showingSettings = false
+    @State private var showingProjectPicker = false
+    @State private var showingLabelPicker = false
+    @State private var isFiltersExpanded = false
+    @State private var showingSortPicker = false
+    @State private var isCreatingTask = false
 
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
-                // Header with Title and Refresh button
+                // Header with Title and action buttons
                 HStack {
                     Text("Tasks")
                         .font(.title2.bold())
+
+                    Button("New") {
+                        let newTask = TodoTask(id: UUID(), title: "", description: nil, completed: false, priority: 4, dueDate: nil, projectId: nil, sectionId: nil, labels: [], subtasks: [], comments: [], attachments: [], createdAt: Date(), status: "new", recurringMode: nil)
+                        viewModel.selectedTask = newTask
+                        isCreatingTask = true
+                    }
+                    .buttonStyle(.bordered)
+
                     Spacer()
-                    Button(action: { viewModel.fetchData() }) {
-                        Image(systemName: "arrow.clockwise")
-                            .help("refresh_button_tooltip")
+
+                    // Sort Button
+                    Button(action: { showingSortPicker = true }) {
+                        Image(systemName: "arrow.up.arrow.down")
                     }
                     .buttonStyle(.plain)
+                    .help("Change sort order")
+                    .popover(isPresented: $showingSortPicker) {
+                        VStack(alignment: .leading) {
+                            ForEach(SortOption.allCases, id: \.self) { option in
+                                Button(action: {
+                                    viewModel.sortOption = option
+                                    showingSortPicker = false
+                                }) {
+                                    HStack {
+                                        switch option {
+                                        case .defaultOrder:
+                                            Image(systemName: "list.bullet")
+                                        case .dueDate:
+                                            Image(systemName: "calendar")
+                                        case .priority:
+                                            Image(systemName: "flag")
+                                        }
+                                        Text(option.rawValue)
+                                        Spacer()
+                                        if viewModel.sortOption == option {
+                                            Image(systemName: "checkmark")
+                                        }
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding()
+                    }
+
+                    // Refresh Button
+                    Button(action: { viewModel.fetchData() }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Refresh tasks")
                     .disabled(viewModel.isLoading)
+
+                    // Settings Button
+                    Button(action: { showingSettings.toggle() }) {
+                        Image(systemName: "gear")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Settings")
+
+                    // Quit Button
+                    Button(action: { NSApplication.shared.terminate(nil) }) {
+                        Image(systemName: "power")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Quit application")
                 }
                 .padding()
                 .overlay(
@@ -26,75 +91,151 @@ struct ContentView: View {
 
                 Divider()
 
-                // The list of tasks
-                TaskListView()
-
-                // --- Bottom Controls ---
-
-                // Filters
-                VStack {
-                    Divider()
-                    // First row of filters
-                    HStack {
-                        Picker("Project", selection: $viewModel.selectedProjectID) {
-                            Text("All Projects").tag(nil as UUID?)
-                            ForEach(viewModel.allProjects) { project in
-                                Text(project.name).tag(project.id as UUID?)
-                            }
+                if let task = viewModel.selectedTask {
+                    TaskDetailView(
+                        task: task,
+                        isCreating: isCreatingTask,
+                        onDismiss: {
+                            viewModel.selectedTask = nil
+                            isCreatingTask = false
                         }
-                        .pickerStyle(.menu)
+                    )
+                } else {
+                    // The list of tasks
+                    TaskListView()
 
-                        Menu {
-                            ForEach(viewModel.allLabels) { label in
-                                Button(action: {
-                                    if viewModel.selectedLabelIDs.contains(label.id) {
-                                        viewModel.selectedLabelIDs.remove(label.id)
-                                    } else {
-                                        viewModel.selectedLabelIDs.insert(label.id)
-                                    }
-                                }) {
-                                    HStack {
-                                        Text(label.name)
-                                        if viewModel.selectedLabelIDs.contains(label.id) {
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
+                    // --- Bottom Controls ---
+                    VStack {
+                    // Pager control - Should always be visible, but part of the animated block
+                    if viewModel.totalPages > 1 {
+                        Divider()
+                        PagerView()
+                    }
+
+                    if isFiltersExpanded {
+                        // Expanded Filter Panel
+                        VStack {
+                            // Header with collapse button
+                            HStack {
+                                Text("Filters")
+                                    .font(.headline)
+                                Spacer()
+                                Button(action: { isFiltersExpanded = false }) {
+                                    Image(systemName: "chevron.down")
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+
+                            // Quick Filter Buttons
+                            VStack(spacing: 8) {
+                                HStack(spacing: 10) {
+                                    FilterButton(title: "Inbox", icon: "tray", category: .inbox, viewModel: viewModel)
+                                    FilterButton(title: "Today", icon: "calendar", category: .today, viewModel: viewModel)
+                                }
+                                HStack(spacing: 10) {
+                                    FilterButton(title: "Upcoming", icon: "clock", category: .upcoming, viewModel: viewModel)
+                                    FilterButton(title: "Completed", icon: "checkmark.circle", category: .completed, viewModel: viewModel)
                                 }
                             }
-                        } label: {
-                            Text("Labels")
-                            if !viewModel.selectedLabelIDs.isEmpty {
-                                Circle().frame(width: 8, height: 8).foregroundColor(.blue)
-                            }
-                        }
-                        Spacer()
-                    }
-                    .padding(.horizontal)
-                    .padding(.top, 8)
+                            .padding(.horizontal)
+                            .padding(.top, 8)
 
-                    // Second row of filters
-                    HStack {
-                        Picker("Sort by", selection: $viewModel.sortOption) {
-                            ForEach(SortOption.allCases) { option in
-                                Text(option.rawValue).tag(option)
+
+                            // Project and Label Pickers
+                            VStack(spacing: 8) {
+                                // Project Picker Button
+                                Button(action: { showingProjectPicker = true }) {
+                                    HStack {
+                                        if viewModel.selectedProjects.isEmpty {
+                                            Text("Projects")
+                                            Spacer()
+                                        } else {
+                                            ScrollView(.horizontal, showsIndicators: false) {
+                                                HStack {
+                                                    ForEach(viewModel.selectedProjects) { project in
+                                                        ItemPillView(item: project, iconName: "folder.fill")
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .padding(8)
+                                    .background(Color.secondary.opacity(0.1))
+                                    .cornerRadius(8)
+                                }
+                                .buttonStyle(.plain)
+                                .popover(isPresented: $showingProjectPicker) {
+                                    MultiSelectPickerView(
+                                        title: "Filter by Project",
+                                        items: viewModel.allProjects,
+                                        iconName: "folder.fill",
+                                        selections: $viewModel.selectedProjectIDs
+                                    )
+                                }
+                                .disabled(viewModel.filterCategory == .inbox)
+
+
+                                // Label Picker Button
+                                Button(action: { showingLabelPicker = true }) {
+                                    HStack {
+                                        if viewModel.selectedLabels.isEmpty {
+                                            Text("Labels")
+                                            Spacer()
+                                        } else {
+                                            ScrollView(.horizontal, showsIndicators: false) {
+                                                HStack {
+                                                    ForEach(viewModel.selectedLabels) { label in
+                                                        ItemPillView(item: label, iconName: "tag.fill")
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        Image(systemName: "chevron.right")
+                                    }
+                                    .padding(8)
+                                    .background(Color.secondary.opacity(0.1))
+                                    .cornerRadius(8)
+                                }
+                                .buttonStyle(.plain)
+                                .popover(isPresented: $showingLabelPicker) {
+                                    MultiSelectPickerView(
+                                        title: "Filter by Label",
+                                        items: viewModel.allLabels,
+                                        iconName: "tag.fill",
+                                        selections: $viewModel.selectedLabelIDs
+                                    )
+                                }
+                                .disabled(viewModel.filterCategory == .completed)
                             }
+                            .padding(.horizontal)
+                            .padding(.vertical, 8)
                         }
-                        .pickerStyle(.menu)
-                        Spacer()
+                        .background(Color(.windowBackgroundColor).opacity(0.8))
+                        .transition(.move(edge: .bottom))
+                    } else {
+                        // Collapsed Filter Button
+                        Divider()
+                        HStack {
+                            Button("Filters") {
+                                isFiltersExpanded = true
+                            }
+                            .buttonStyle(.link)
+                            Spacer()
+                        }
+                        .padding()
+                        .background(Color(.windowBackgroundColor).opacity(0.8))
                     }
-                    .padding(.horizontal)
-                    .padding(.bottom, 8)
                 }
-                .background(Color(.windowBackgroundColor).opacity(0.8))
-
-
-                // Pager control
-                if viewModel.totalPages > 1 {
-                    Divider()
-                    PagerView()
+                .animation(.spring(), value: isFiltersExpanded)
                 }
             }
             .blur(radius: viewModel.errorMessage != nil ? 3 : 0)
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
+            }
 
             // Error Banner Overlay
             if let errorMessage = viewModel.errorMessage {
@@ -103,19 +244,54 @@ struct ContentView: View {
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-        }
-        .animation(.spring(), value: viewModel.errorMessage)
-        .frame(minWidth: 450, maxWidth: 450, minHeight: 200, maxHeight: 600)
-        .onAppear {
-            if viewModel.allTasks.isEmpty {
-                viewModel.fetchData()
+
+            // Detail View Loader
+            if viewModel.isLoadingDetail {
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.black.opacity(0.1))
             }
         }
+        .animation(.spring(), value: viewModel.errorMessage)
+        .frame(minWidth: 450, maxWidth: 450, minHeight: 400, maxHeight: 800)
         .onReceive(Timer.publish(every: 300, on: .main, in: .common).autoconnect()) { _ in
             // Only refresh if there's no error banner shown and not currently loading
             if viewModel.errorMessage == nil && !viewModel.isLoading {
                 viewModel.fetchData()
             }
         }
+    }
+}
+
+// A helper view for the filter buttons at the bottom.
+struct FilterButton: View {
+    let title: String
+    let icon: String
+    let category: FilterCategory
+    @ObservedObject var viewModel: TaskListViewModel
+
+    private var isSelected: Bool {
+        viewModel.filterCategory == category
+    }
+
+    var body: some View {
+        Button(action: {
+            if isSelected {
+                viewModel.filterCategory = .all // Toggle off to default
+            } else {
+                viewModel.filterCategory = category
+            }
+        }) {
+            HStack {
+                Image(systemName: icon)
+                Text(title)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(8)
+            .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
+            .contentShape(Rectangle()) // Makes the whole area clickable
+            .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
     }
 }

@@ -11,14 +11,14 @@ struct TodoTask: Codable, Identifiable {
     var sectionId: UUID?
     var labels: [UUID]
     var subtasks: [TodoSubtask]
-    let comments: [String]
+    var comments: [String]
     let attachments: [String]
     let createdAt: Date
     var status: String
     let recurringMode: String?
 }
 
-struct TodoSubtask: Codable, Identifiable {
+struct TodoSubtask: Codable, Identifiable, Equatable {
     let id: UUID
     var title: String
     var completed: Bool
