@@ -22,6 +22,31 @@ enum FilterCategory: String, CaseIterable, Identifiable {
 @MainActor
 class TaskListViewModel: ObservableObject {
 
+    // MARK: - Date Parsing Helpers
+    // Reuse these formatters to avoid recreating them for each task
+    private static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let dateOnlyFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.calendar = Calendar(identifier: .gregorian)
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(secondsFromGMT: 0)
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private func parseDueDate(_ isoString: String) -> Date? {
+        // Try ISO8601 with fractional seconds first, then fall back to a date-only format.
+        if let d = Self.iso8601WithFractionalSeconds.date(from: isoString) {
+            return d
+        }
+        return Self.dateOnlyFormatter.date(from: isoString)
+    }
+
     // MARK: - Published Properties
 
     @Published private(set) var allTasks: [TodoTask] = []
@@ -32,8 +57,8 @@ class TaskListViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     // Filtering & Sorting criteria
-    @Published var selectedProjectIDs = Set<UUID>()
-    @Published var selectedLabelIDs = Set<UUID>()
+    @Published var selectedProjectIDs = Set<String>()
+    @Published var selectedLabelIDs = Set<String>()
     @Published var sortOption: SortOption = .dueDate
     @Published var filterCategory: FilterCategory = .all
 
@@ -44,7 +69,8 @@ class TaskListViewModel: ObservableObject {
 
     // Pagination
     @Published var currentPage: Int = 0
-    private let itemsPerPage: Int = 5
+    // Make itemsPerPage adjustable at runtime (driven by the view measuring available space)
+    @Published var itemsPerPage: Int = 5
 
     // MARK: - Computed Properties
 
@@ -78,8 +104,8 @@ class TaskListViewModel: ObservableObject {
 
     func createTask(_ task: TodoTask) async {
         var taskData: [String: Any] = [
-            "title": task.title,
-            "comments": task.comments
+                "title": task.title,
+            "comments": task.comments ?? []
         ]
         if let description = task.description, !description.isEmpty {
             taskData["description"] = description
@@ -88,15 +114,13 @@ class TaskListViewModel: ObservableObject {
             taskData["priority"] = priority
         }
         if let dueDate = task.dueDate {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            taskData["dueDate"] = formatter.string(from: dueDate)
+            taskData["dueDate"] = dueDate
         }
         if let projectId = task.projectId {
             taskData["projectId"] = projectId
         }
-        if !task.labels.isEmpty {
-            taskData["labels"] = task.labels
+        if let labels = task.labels, !labels.isEmpty {
+            taskData["labels"] = labels
         }
 
         Task {
@@ -111,48 +135,65 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
+    // ...existing code...
+
     var filteredTasks: [TodoTask] {
         var tasks: [TodoTask]
 
         // 1. Primary Filter based on the selected category
         switch filterCategory {
         case .all:
-            tasks = allTasks.filter { !$0.completed }
+            tasks = allTasks.filter { t in
+                // Show if not completed (false or nil)
+                t.completed != true
+            }
         case .inbox:
-            tasks = allTasks.filter { $0.projectId == nil && !$0.completed }
+            tasks = allTasks.filter { t in
+                // Inbox: no projectId (nil or empty) and not completed (false or nil)
+                (t.projectId == nil || t.projectId == "") && t.completed != true
+            }
         case .today:
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: Date())
             tasks = allTasks.filter { task in
-                guard let dueDate = task.dueDate else { return false }
+                guard let dueDateStr = task.dueDate, let dueDate = parseDueDate(dueDateStr) else { return false }
                 let taskDueDate = calendar.startOfDay(for: dueDate)
-                return taskDueDate <= today && !task.completed
+                // Include overdue (taskDueDate < today) and tasks due today (==)
+                return taskDueDate <= today && task.completed != true
             }
         case .upcoming:
             let calendar = Calendar.current
             let today = calendar.startOfDay(for: Date())
             tasks = allTasks.filter { task in
-                guard let dueDate = task.dueDate else { return false }
+                guard let dueDateStr = task.dueDate, let dueDate = parseDueDate(dueDateStr) else { return false }
                 let taskDueDate = calendar.startOfDay(for: dueDate)
-                return taskDueDate > today && !task.completed
+                return taskDueDate > today && task.completed != true
             }
         case .completed:
-            tasks = allTasks.filter { $0.completed }
+            tasks = allTasks.filter { $0.completed == true }
         }
+
+        print("[TaskListViewModel] after primary filter: \(tasks.count) tasks")
 
         // 2. Secondary Filters (Project and Labels)
-        if filterCategory != .inbox { // "Inbox" is for tasks without a project.
+        let hasProjects = !(allProjects.isEmpty)
+        let hasLabels = !(allLabels.isEmpty)
+        if !hasProjects {
+            print("[TaskListViewModel] No projects loaded; disabling project filter.")
+        }
+        if !hasLabels {
+            print("[TaskListViewModel] No labels loaded; disabling label filter.")
+        }
+        if filterCategory != .inbox && hasProjects { // "Inbox" is for tasks without a project.
             tasks = filterTasksByProject(tasks)
         }
-        if filterCategory != .completed { // The "Completed" view should not be filtered by labels.
+        if filterCategory != .completed && hasLabels { // The "Completed" view should not be filtered by labels.
             tasks = filterTasksByLabels(tasks)
         }
-
 
         // 3. Sorting
         switch sortOption {
         case .defaultOrder:
-            // A more robust implementation would use the `taskOrder` array from the `Project` model.
             break
         case .dueDate:
             tasks.sort {
@@ -172,7 +213,7 @@ class TaskListViewModel: ObservableObject {
     private let networkService: NetworkServiceProtocol
     private var cancellables = Set<AnyCancellable>()
     private let updateSubject = PassthroughSubject<TodoTask, Never>()
-    private var dirtyTaskIDs = Set<UUID>()
+    private var dirtyTaskIDs = Set<String>()
 
     // MARK: - Initializer
 
@@ -190,7 +231,7 @@ class TaskListViewModel: ObservableObject {
 
         // Reset pagination and save settings whenever they change
         $selectedProjectIDs
-            .dropFirst() // Ignore the initial value set by loadSettings
+            .dropFirst()
             .sink { [weak self] ids in
                 SettingsService.shared.selectedProjectIDs = ids
                 self?.resetPagination()
@@ -224,6 +265,9 @@ class TaskListViewModel: ObservableObject {
 
     // MARK: - Public Methods
 
+    @Published var showSettingsOnAuthError = false
+    @Published var lastAuthConfig: (endpoint: String, apiKey: String)? = nil
+
     func fetchData() {
         guard !isLoading else { return }
 
@@ -234,19 +278,17 @@ class TaskListViewModel: ObservableObject {
             do {
                 let response = try await networkService.fetchTasks()
 
-                // Stricter defensive update: If the server returns an empty list of tasks,
-                // ignore it completely to avoid overwriting a valid cache with a faulty response.
-                guard !response.tasks.isEmpty else {
-                    print("Received an empty task list from the server. Ignoring to protect cache.")
+                // If tasks is nil or empty, ignore updating tasks to avoid clobbering cache
+                let serverTasks = response.tasks ?? []
+                guard !serverTasks.isEmpty else {
+                    print("Received an empty or missing task list from the server. Ignoring to protect cache.")
                     self.isLoading = false
                     return
                 }
 
-                // If we get here, the response is valid and non-empty.
+                // If we get here, the response contains tasks.
                 SettingsService.shared.cachedAPIResponse = response
-
-                let serverTasks = response.tasks
-                let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id) }
+                let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id ?? "") }
                 let dirtyTasksByID = Dictionary(uniqueKeysWithValues: dirtyTasks.map { ($0.id, $0) })
 
                 let mergedTasks = serverTasks.map { serverTask in
@@ -254,11 +296,45 @@ class TaskListViewModel: ObservableObject {
                 }
 
                 self.allTasks = mergedTasks
-                self.allProjects = response.projects
-                self.allLabels = response.labels
 
+                // Fetch projects and labels from their endpoints
+                async let fetchedProjects = (networkService as? NetworkService)?.fetchProjects()
+                async let fetchedLabels = (networkService as? NetworkService)?.fetchLabels()
+                let projects = await (try? fetchedProjects) ?? []
+                let labels = await (try? fetchedLabels) ?? []
+                self.allProjects = projects
+                self.allLabels = labels
+
+                print("[TaskListViewModel] allTasks count after fetch: \(self.allTasks.count)")
+                for t in self.allTasks.prefix(5) {
+                    let idStr = t.id ?? "nil"
+                    print("  - id: \(idStr), title: \(t.title)")
+                }
+                print("[TaskListViewModel] filteredTasks count: \(self.filteredTasks.count)")
+                for t in self.filteredTasks.prefix(5) {
+                    let idStr = t.id ?? "nil"
+                    print("  - id: \(idStr), title: \(t.title)")
+                }
+                print("[TaskListViewModel] paginatedTasks count: \(self.paginatedTasks.count)")
+                for t in self.paginatedTasks.prefix(5) {
+                    let idStr = t.id ?? "nil"
+                    print("  - id: \(idStr), title: \(t.title)")
+                }
+
+            } catch let error as NetworkService.AuthError {
+                if case .forbidden = error {
+                    let configService = ConfigurationService.shared
+                    let endpoint = configService.configuration?.endpoint ?? ""
+                    let apiKey = configService.configuration?.apiKey ?? ""
+                    self.lastAuthConfig = (endpoint: endpoint, apiKey: apiKey)
+                    self.showSettingsOnAuthError = true
+                }
             } catch {
+                // For non-auth errors, log details and keep existing UI state instead of opening settings immediately
+                print("❌ fetchData failed with error: \(error)")
                 self.errorMessage = NSLocalizedString("error_fetch_failed", comment: "Error message for network fetch failure")
+                // If it's a decoding error, the NetworkService already printed the raw JSON and error; we just surface a message
+                // Do not forcibly present settings for generic network/decode errors to avoid wiping the UI.
             }
 
             self.isLoading = false
@@ -266,15 +342,15 @@ class TaskListViewModel: ObservableObject {
     }
 
     func updateTask(_ task: TodoTask) {
-        if let index = allTasks.firstIndex(where: { $0.id == task.id }) {
+        if let id = task.id, let index = allTasks.firstIndex(where: { $0.id == id }) {
             allTasks[index] = task
-            dirtyTaskIDs.insert(task.id)
+            dirtyTaskIDs.insert(id)
         }
         updateSubject.send(task)
     }
 
     func updateTaskImmediately(_ modifiedTask: TodoTask) {
-        guard let originalTask = allTasks.first(where: { $0.id == modifiedTask.id }) else {
+        guard let id = modifiedTask.id, let originalTask = allTasks.first(where: { $0.id == id }) else {
             print("Error: Could not find original task to create a diff.")
             return
         }
@@ -282,13 +358,13 @@ class TaskListViewModel: ObservableObject {
         let diff = createDiff(original: originalTask, modified: modifiedTask)
 
         // Update the local task list immediately
-        if let index = allTasks.firstIndex(where: { $0.id == modifiedTask.id }) {
+        if let index = allTasks.firstIndex(where: { $0.id == id }) {
             allTasks[index] = modifiedTask
         }
 
         // Only send the update if there are actual changes
         guard diff.count > 1 else { // > 1 because 'id' is always present
-            print("No changes detected for task \(modifiedTask.id). Skipping update.")
+            print("No changes detected for task \(String(describing: modifiedTask.id)). Skipping update.")
             return
         }
 
@@ -296,8 +372,8 @@ class TaskListViewModel: ObservableObject {
         Task {
             do {
                 try await networkService.updateTasks([diff])
-                print("Successfully updated task \(modifiedTask.id).")
-                self.dirtyTaskIDs.remove(modifiedTask.id)
+                print("Successfully updated task \(String(describing: modifiedTask.id)).")
+                if let id = modifiedTask.id { self.dirtyTaskIDs.remove(id) }
             } catch {
                 errorMessage = NSLocalizedString("error_update_failed", comment: "Error message for network update failure")
             }
@@ -322,65 +398,69 @@ class TaskListViewModel: ObservableObject {
 
     func toggleTaskCompletion(for task: TodoTask) {
         var mutatedTask = task
-        mutatedTask.completed.toggle()
+        mutatedTask.completed = !(task.completed ?? false)
         updateTaskImmediately(mutatedTask)
     }
 
     func toggleSubtaskCompletion(for subtask: TodoSubtask, in parentTask: TodoTask) {
-        guard let parentTaskIndex = allTasks.firstIndex(where: { $0.id == parentTask.id }) else { return }
-        guard let subtaskIndex = allTasks[parentTaskIndex].subtasks.firstIndex(where: { $0.id == subtask.id }) else { return }
+      guard let parentTaskId = parentTask.id, let parentTaskIndex = allTasks.firstIndex(where: { $0.id == parentTaskId }) else { return }
+      guard let subtaskId = subtask.id,
+          let subtasks = allTasks[parentTaskIndex].subtasks,
+          let subtaskIndex = subtasks.firstIndex(where: { $0.id == subtaskId }) else { return }
 
-        allTasks[parentTaskIndex].subtasks[subtaskIndex].completed.toggle()
+      var updatedSubtasks = subtasks
+      updatedSubtasks[subtaskIndex].completed = !(updatedSubtasks[subtaskIndex].completed ?? false)
+      allTasks[parentTaskIndex].subtasks = updatedSubtasks
 
-        let updatedParentTask = allTasks[parentTaskIndex]
-        updateTask(updatedParentTask)
+      let updatedParentTask = allTasks[parentTaskIndex]
+      updateTask(updatedParentTask)
     }
 
     // MARK: - Private Methods
 
-    private func loadFromCache() {
+    func loadFromCache() {
         if let cachedResponse = SettingsService.shared.cachedAPIResponse {
-            self.allTasks = cachedResponse.tasks
-            self.allProjects = cachedResponse.projects
-            self.allLabels = cachedResponse.labels
+            self.allTasks = cachedResponse.tasks ?? []
+            self.allProjects = cachedResponse.projects ?? []
+            self.allLabels = cachedResponse.labels ?? []
         }
     }
 
-    private func createDiff(original: TodoTask, modified: TodoTask) -> [String: Any] {
+    func createDiff(original: TodoTask, modified: TodoTask) -> [String: Any] {
         var diff = [String: Any]()
-        diff["id"] = modified.id
+        if let id = modified.id { diff["id"] = id }
 
         if original.title != modified.title {
-            diff["title"] = modified.title
+                diff["title"] = modified.title
         }
         if original.description != modified.description {
             diff["description"] = modified.description ?? NSNull()
         }
-        if original.completed != modified.completed {
-            diff["completed"] = modified.completed
+        if (original.completed ?? false) != (modified.completed ?? false) {
+            diff["completed"] = modified.completed ?? false
         }
         if original.priority != modified.priority {
             diff["priority"] = modified.priority ?? NSNull()
         }
         if original.dueDate != modified.dueDate {
-            if let date = modified.dueDate {
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd"
-                diff["dueDate"] = formatter.string(from: date)
-            } else {
-                diff["dueDate"] = NSNull()
-            }
+            diff["dueDate"] = modified.dueDate ?? NSNull()
         }
         if original.projectId != modified.projectId {
             diff["projectId"] = modified.projectId ?? NSNull()
         }
-        if Set(original.labels) != Set(modified.labels) {
-            diff["labels"] = modified.labels
+        let origLabels = Set(original.labels ?? [])
+        let modLabels = Set(modified.labels ?? [])
+        if origLabels != modLabels {
+            diff["labels"] = modified.labels ?? []
         }
         if original.subtasks != modified.subtasks {
-            // The API expects an array of dictionaries for subtasks
-            let subtaskDicts = modified.subtasks.map { subtask in
-                return ["id": subtask.id, "title": subtask.title, "completed": subtask.completed, "order": subtask.order]
+            let subtaskDicts = (modified.subtasks ?? []).map { subtask in
+                return [
+                    "id": subtask.id ?? "",
+                    "title": subtask.title,
+                    "completed": subtask.completed ?? false,
+                    "order": subtask.order ?? 0
+                ]
             }
             diff["subtasks"] = subtaskDicts
         }
@@ -388,14 +468,14 @@ class TaskListViewModel: ObservableObject {
         return diff
     }
 
-    private func loadSettings() {
-        sortOption = SettingsService.shared.sortOption
-        filterCategory = SettingsService.shared.filterCategory
+    func loadSettings() {
+    sortOption = SettingsService.shared.sortOption
+    filterCategory = SettingsService.shared.filterCategory
         selectedProjectIDs = SettingsService.shared.selectedProjectIDs
         selectedLabelIDs = SettingsService.shared.selectedLabelIDs
     }
 
-    private func setupDebouncer() {
+    func setupDebouncer() {
         updateSubject
             .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
             .collect()
@@ -406,7 +486,7 @@ class TaskListViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func sendUpdate(tasks: [TodoTask]) {
+    func sendUpdate(tasks: [TodoTask]) {
         guard !tasks.isEmpty else { return }
 
         let diffs = tasks.compactMap { modifiedTask -> [String: Any]? in
@@ -420,7 +500,7 @@ class TaskListViewModel: ObservableObject {
             return
         }
 
-        let taskIDsToUpdate = tasks.map { $0.id }
+    let taskIDsToUpdate = tasks.compactMap { $0.id }
 
         Task {
             do {
@@ -435,7 +515,7 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
-    private func filterTasksByProject(_ tasks: [TodoTask]) -> [TodoTask] {
+    func filterTasksByProject(_ tasks: [TodoTask]) -> [TodoTask] {
         guard !selectedProjectIDs.isEmpty else {
             return tasks
         }
@@ -445,12 +525,12 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
-    private func filterTasksByLabels(_ tasks: [TodoTask]) -> [TodoTask] {
+    func filterTasksByLabels(_ tasks: [TodoTask]) -> [TodoTask] {
         guard !selectedLabelIDs.isEmpty else {
             return tasks
         }
         return tasks.filter { task in
-            let taskLabelSet = Set(task.labels)
+            let taskLabelSet = Set(task.labels ?? [])
             return !selectedLabelIDs.isDisjoint(with: taskLabelSet)
         }
     }
@@ -458,31 +538,31 @@ class TaskListViewModel: ObservableObject {
     // MARK: - Computed Properties for UI
 
     var selectedProjects: [Project] {
-        // Create a dictionary for quick lookups
-        let projectsByID = Dictionary(uniqueKeysWithValues: allProjects.map { ($0.id, $0) })
-        // Map selected IDs to project objects, maintaining order if necessary
-        return selectedProjectIDs.compactMap { projectsByID[$0] }
+    let projectsByID = Dictionary(uniqueKeysWithValues: allProjects.map { ($0.id, $0) })
+    return selectedProjectIDs.compactMap { projectsByID[$0] }
     }
 
     var selectedLabels: [Label] {
-        let labelsByID = Dictionary(uniqueKeysWithValues: allLabels.map { ($0.id, $0) })
-        return selectedLabelIDs.compactMap { labelsByID[$0] }
+    let labelsByID = Dictionary(uniqueKeysWithValues: allLabels.map { ($0.id, $0) })
+    return selectedLabelIDs.compactMap { labelsByID[$0] }
     }
 
 
     // MARK: - Data Resolution Methods
 
     func project(for task: TodoTask) -> Project? {
-        return allProjects.first { $0.id == task.projectId }
+        guard let pid = task.projectId else { return nil }
+        return allProjects.first { $0.id == pid }
     }
 
     func section(for task: TodoTask) -> Section? {
-        guard let project = project(for: task) else { return nil }
-        return project.sections.first { $0.id == task.sectionId }
+        guard let project = project(for: task), let sid = task.sectionId else { return nil }
+        // `sections` may be nil if the API omitted them; handle gracefully
+        return project.sections?.first { $0.id == sid }
     }
 
     func labels(for task: TodoTask) -> [Label] {
-        let taskLabelSet = Set(task.labels)
+        let taskLabelSet = Set(task.labels ?? [])
         return allLabels.filter { taskLabelSet.contains($0.id) }
     }
 }

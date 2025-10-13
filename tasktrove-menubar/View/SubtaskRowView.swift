@@ -12,15 +12,16 @@ struct SubtaskRowView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: subtask.completed ? "checkmark.square.fill" : "square")
-                .foregroundColor(subtask.completed ? .green : .secondary)
+            let isCompleted = subtask.completed ?? false
+            Image(systemName: isCompleted ? "checkmark.square.fill" : "square")
+                .foregroundColor(isCompleted ? .green : .secondary)
                 .onTapGesture {
                     viewModel.toggleSubtaskCompletion(for: subtask, in: task)
                 }
 
             Text(subtask.title)
-                .strikethrough(subtask.completed, color: .secondary)
-                .foregroundColor(subtask.completed ? .secondary : .primary)
+                .strikethrough(isCompleted, color: .secondary)
+                .foregroundColor(isCompleted ? .secondary : .primary)
 
             Spacer()
         }

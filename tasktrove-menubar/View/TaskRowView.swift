@@ -16,8 +16,9 @@ struct TaskRowView: View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: 12) {
                 // Checkbox
-                Image(systemName: task.completed ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(task.completed ? .green : .secondary)
+                let isCompleted = task.completed ?? false
+                Image(systemName: isCompleted ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isCompleted ? .green : .secondary)
                     .font(.title2)
                     .onTapGesture {
                         viewModel.toggleTaskCompletion(for: task)
@@ -46,6 +47,11 @@ struct TaskRowView: View {
 
                     // Single line for all metadata
                     HStack(spacing: 8) {
+                        // Project pill (small, colored)
+                        if let project = viewModel.project(for: task) {
+                            ProjectPill(project: project)
+                        }
+
                         // Labels
                         let labels = viewModel.labels(for: task)
                         if !labels.isEmpty {
@@ -59,10 +65,11 @@ struct TaskRowView: View {
                         Spacer()
 
                         // Subtask Indicator
-                        if !task.subtasks.isEmpty {
+                        let subtasks = task.subtasks ?? []
+                        if !subtasks.isEmpty {
                             HStack(spacing: 2) {
                                 Image(systemName: "checklist")
-                                Text("\(task.subtasks.filter { $0.completed }.count)/\(task.subtasks.count)")
+                                Text("\(subtasks.filter { $0.completed ?? false }.count)/\(subtasks.count)")
                             }
                             .font(.caption)
                             .foregroundColor(.secondary)
@@ -75,7 +82,7 @@ struct TaskRowView: View {
                         }
 
                         // Due Date
-                        if let dueDate = task.dueDate {
+                        if let dueDateString = task.dueDate, let dueDate = parseDate(from: dueDateString) {
                             HStack(spacing: 4) {
                                 Image(systemName: "calendar")
                                 Text(formatRelativeDate(dueDate))
@@ -90,9 +97,9 @@ struct TaskRowView: View {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.secondary)
             }
-            .padding(5)
+            .padding(.vertical, 4)
+            .padding(.horizontal, 6)
 
-            Divider()
         }
         .background(isHovering ? Color.secondary.opacity(0.1) : Color.clear)
         .contentShape(Rectangle()) // Make the whole area tappable
@@ -114,6 +121,12 @@ struct TaskRowView: View {
                 }
             }
         }
+        // Report the row's height to a preference so the list can compute how many fit
+        .background(
+            GeometryReader { geo in
+                Color.clear.preference(key: RowHeightPreferenceKey.self, value: geo.size.height)
+            }
+        )
     }
 
     private func isOverdue(_ date: Date) -> Bool {
@@ -155,6 +168,20 @@ struct TaskRowView: View {
             return "demain"
         }
         return date.formatted(date: .abbreviated, time: .omitted)
+    }
+
+    // Helper to parse ISO8601 date string to Date
+    private func parseDate(from string: String) -> Date? {
+        let isoFormatter = ISO8601DateFormatter()
+        // Try full ISO8601 with time first
+        if let date = isoFormatter.date(from: string) {
+            return date
+        }
+        // Try just date (yyyy-MM-dd)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        return dateFormatter.date(from: string)
     }
 
     // MARK: - Inline Editing Methods
@@ -230,5 +257,19 @@ struct TaskRowView_Previews: PreviewProvider {
             }
         }
         .frame(width: 400)
+    }
+}
+
+// A small view for displaying a project as a colored pill (smaller font)
+struct ProjectPill: View {
+    let project: Project
+
+    var body: some View {
+        Text(project.name)
+            .font(.caption2)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color(hex: project.color)?.opacity(0.15) ?? .gray.opacity(0.15))
+            .cornerRadius(6)
     }
 }

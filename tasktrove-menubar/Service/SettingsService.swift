@@ -45,31 +45,29 @@ class SettingsService {
 
     // MARK: - Selected Project IDs
 
-    var selectedProjectIDs: Set<UUID> {
+    var selectedProjectIDs: Set<String> {
         get {
-            guard let uuidStrings = defaults.array(forKey: Keys.selectedProjectIDs) as? [String] else {
+            guard let idStrings = defaults.array(forKey: Keys.selectedProjectIDs) as? [String] else {
                 return []
             }
-            return Set(uuidStrings.compactMap { UUID(uuidString: $0) })
+            return Set(idStrings)
         }
         set {
-            let uuidStrings = newValue.map { $0.uuidString }
-            defaults.set(uuidStrings, forKey: Keys.selectedProjectIDs)
+            defaults.set(Array(newValue), forKey: Keys.selectedProjectIDs)
         }
     }
 
     // MARK: - Selected Label IDs
 
-    var selectedLabelIDs: Set<UUID> {
+    var selectedLabelIDs: Set<String> {
         get {
-            guard let uuidStrings = defaults.array(forKey: Keys.selectedLabelIDs) as? [String] else {
+            guard let idStrings = defaults.array(forKey: Keys.selectedLabelIDs) as? [String] else {
                 return []
             }
-            return Set(uuidStrings.compactMap { UUID(uuidString: $0) })
+            return Set(idStrings)
         }
         set {
-            let uuidStrings = newValue.map { $0.uuidString }
-            defaults.set(uuidStrings, forKey: Keys.selectedLabelIDs)
+            defaults.set(Array(newValue), forKey: Keys.selectedLabelIDs)
         }
     }
 

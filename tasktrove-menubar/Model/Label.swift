@@ -1,7 +1,7 @@
 import Foundation
 
-struct Label: Codable, Identifiable, Hashable, Equatable, SelectableItem {
-    let id: UUID
+struct Label: Codable, Hashable, Equatable, SelectableItem {
+    let id: String
     let name: String
     let slug: String
     let color: String
@@ -9,16 +9,16 @@ struct Label: Codable, Identifiable, Hashable, Equatable, SelectableItem {
 
 struct ProjectGroup: Codable, Identifiable {
     let type: String
-    let id: UUID
+    let id: String
     let name: String
     let slug: String
-    let items: [UUID]
+    let items: [String]
 }
 
 struct LabelGroup: Codable, Identifiable {
     let type: String
-    let id: UUID
+    let id: String
     let name: String
     let slug: String
-    let items: [UUID]
+    let items: [String]
 }

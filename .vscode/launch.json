@@ -1,0 +1,28 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "name": "Launch TaskTrove (swift)",
+            "program": "${workspaceFolder}/build/Debug/tasktrove-menubar.app/Contents/MacOS/tasktrove-menubar",
+            "args": [],
+            "env": {},
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "xcodebuild: build Debug"
+        },
+        {
+            "type": "lldb-dap",
+            "request": "launch",
+            "name": "Launch TaskTrove (lldb-dap)",
+            "program": "${workspaceFolder}/build/Debug/tasktrove-menubar.app/Contents/MacOS/tasktrove-menubar",
+            "args": [],
+            "env": {},
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "xcodebuild: build Debug"
+        }
+    ]
+}

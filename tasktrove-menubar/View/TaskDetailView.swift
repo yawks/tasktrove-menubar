@@ -134,7 +134,7 @@ struct TaskDetailView: View {
                     Text("Labels").font(.caption).foregroundColor(.secondary)
                     Button(action: { showingLabelPicker = true }) {
                          HStack {
-                            if self.task.labels.isEmpty {
+                            if (self.task.labels ?? []).isEmpty {
                                 Text("No Labels")
                                 Spacer()
                             } else {
@@ -157,7 +157,7 @@ struct TaskDetailView: View {
                             items: viewModel.allLabels,
                             iconName: "tag.fill",
                             selections: Binding(
-                                get: { Set(self.task.labels) },
+                                get: { Set(self.task.labels ?? []) },
                                 set: { self.task.labels = Array($0) }
                             )
                         )
@@ -167,7 +167,7 @@ struct TaskDetailView: View {
                     Text("Due Date").font(.caption).foregroundColor(.secondary)
                     Button(action: { showingDatePicker = true }) {
                         HStack {
-                            Text(self.task.dueDate != nil ? self.task.dueDate!.formatted(date: .long, time: .omitted) : "No due date")
+                            Text(formattedDueDateText())
                             Spacer()
                             if self.task.dueDate != nil {
                                 Button(action: { self.task.dueDate = nil }) {
@@ -184,7 +184,7 @@ struct TaskDetailView: View {
                         VStack {
                             HStack(spacing: 12) {
                                 Button(action: {
-                                    self.task.dueDate = Date()
+                                    self.task.dueDate = isoString(from: Date())
                                     showingDatePicker = false
                                 }) {
                                     HStack {
@@ -194,7 +194,9 @@ struct TaskDetailView: View {
                                 }
 
                                 Button(action: {
-                                    self.task.dueDate = Calendar.current.date(byAdding: .day, value: 1, to: Date())
+                                    if let d = Calendar.current.date(byAdding: .day, value: 1, to: Date()) {
+                                        self.task.dueDate = isoString(from: d)
+                                    }
                                     showingDatePicker = false
                                 }) {
                                     HStack {
@@ -204,7 +206,9 @@ struct TaskDetailView: View {
                                 }
 
                                 Button(action: {
-                                    self.task.dueDate = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: Date())
+                                    if let d = Calendar.current.date(byAdding: .weekOfYear, value: 1, to: Date()) {
+                                        self.task.dueDate = isoString(from: d)
+                                    }
                                     showingDatePicker = false
                                 }) {
                                      HStack {
@@ -219,8 +223,8 @@ struct TaskDetailView: View {
                             DatePicker(
                                 "Due Date",
                                 selection: Binding(
-                                    get: { self.task.dueDate ?? Date() },
-                                    set: { self.task.dueDate = $0 }
+                                    get: { parseDate(from: self.task.dueDate) ?? Date() },
+                                    set: { self.task.dueDate = isoString(from: $0) }
                                 ),
                                 displayedComponents: .date
                             )
@@ -267,27 +271,36 @@ struct TaskDetailView: View {
 
                     // Subtasks
                     Text("Subtasks").font(.caption).foregroundColor(.secondary)
-                    ForEach($task.subtasks) { $subtask in
-                        Button(action: {
-                            $subtask.completed.wrappedValue.toggle()
-                        }) {
-                            HStack {
-                                Image(systemName: $subtask.completed.wrappedValue ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor($subtask.completed.wrappedValue ? .green : .secondary)
-                                Text($subtask.title.wrappedValue)
-                                    .strikethrough($subtask.completed.wrappedValue, color: .secondary)
-                                    .foregroundColor($subtask.completed.wrappedValue ? .secondary : .primary)
+                    if let _ = task.subtasks {
+                        ForEach(task.subtasks!.indices, id: \.self) { idx in
+                            Button(action: {
+                                task.subtasks![idx].completed = !(task.subtasks![idx].completed ?? false)
+                            }) {
+                                HStack {
+                                    Image(systemName: (task.subtasks![idx].completed ?? false) ? "checkmark.circle.fill" : "circle")
+                                        .foregroundColor((task.subtasks![idx].completed ?? false) ? .green : .secondary)
+                                    Text(task.subtasks![idx].title)
+                                        .strikethrough(task.subtasks![idx].completed ?? false, color: .secondary)
+                                        .foregroundColor((task.subtasks![idx].completed ?? false) ? .secondary : .primary)
+                                }
                             }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+
                     // Add new subtask UI
                     HStack {
                         TextField("New subtask...", text: $newSubtaskTitle)
                         Button("Add") {
                             if !newSubtaskTitle.isEmpty {
-                                let newSubtask = TodoSubtask(id: UUID(), title: newSubtaskTitle, completed: false, order: task.subtasks.count)
-                                task.subtasks.append(newSubtask)
+                                let newId = UUID().uuidString
+                                let order = task.subtasks?.count ?? 0
+                                let newSubtask = TodoSubtask(id: newId, title: newSubtaskTitle, completed: false, order: order)
+                                if task.subtasks == nil {
+                                    task.subtasks = [newSubtask]
+                                } else {
+                                    task.subtasks!.append(newSubtask)
+                                }
                                 newSubtaskTitle = ""
                             }
                         }
@@ -295,11 +308,11 @@ struct TaskDetailView: View {
 
                     // Comments
                     Text("Comments").font(.caption).foregroundColor(.secondary)
-                    if task.comments.isEmpty {
+                    if (task.comments ?? []).isEmpty {
                         Text("No comments yet.").italic().foregroundColor(.secondary)
                     } else {
-                        ForEach(task.comments, id: \.self) { comment in
-                            Text(comment)
+                        ForEach(task.comments ?? []) { comment in
+                            Text(comment.content ?? "")
                                 .padding(8)
                                 .background(Color.secondary.opacity(0.1))
                                 .cornerRadius(8)
@@ -310,7 +323,12 @@ struct TaskDetailView: View {
                         TextField("Add a comment...", text: $newCommentText)
                         Button("Add") {
                             if !newCommentText.isEmpty {
-                                task.comments.append(newCommentText)
+                                let newComment = Comment(id: UUID().uuidString, content: newCommentText, createdAt: isoString(from: Date()))
+                                if task.comments == nil {
+                                    task.comments = [newComment]
+                                } else {
+                                    task.comments!.append(newComment)
+                                }
                                 newCommentText = ""
                             }
                         }
@@ -363,5 +381,34 @@ struct TaskDetailView: View {
                 Text("No Priority")
             }
         }
+    }
+
+    // Date helpers to convert between ISO8601 strings and Date
+    private func parseDate(from string: String?) -> Date? {
+        guard let string = string else { return nil }
+        let isoFormatter = ISO8601DateFormatter()
+        if let date = isoFormatter.date(from: string) {
+            return date
+        }
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.locale = Locale(identifier: "en_US_POSIX")
+        return df.date(from: string)
+    }
+
+    private func isoString(from date: Date) -> String {
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime]
+        return isoFormatter.string(from: date)
+    }
+
+    private func formattedDueDateText() -> String {
+        if let dueDateString = task.dueDate, let date = parseDate(from: dueDateString) {
+            let df = DateFormatter()
+            df.dateStyle = .long
+            df.timeStyle = .none
+            return df.string(from: date)
+        }
+        return "No due date"
     }
 }

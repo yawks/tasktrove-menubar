@@ -2,12 +2,17 @@ import Foundation
 import Combine
 
 @MainActor
+
 class SettingsViewModel: ObservableObject {
+    /// allow to set values without triggering unnecessary reloads
+    func prefill(endpoint: String, apiKey: String) {
+        self.endpoint = endpoint
+        self.apiKey = apiKey
+    }
 
     // MARK: - Published Properties
     @Published var endpoint = ""
-    @Published var login = ""
-    @Published var password = ""
+    @Published var apiKey = ""
 
     @Published var isLoading = false
     @Published var feedbackMessage: (text: String, isError: Bool)?
@@ -31,35 +36,28 @@ class SettingsViewModel: ObservableObject {
     func loadInitialValues() {
         if let config = configService.configuration {
             self.endpoint = config.endpoint
-            self.login = config.login
+            self.apiKey = config.apiKey
         }
-        // Password is not pre-filled for security.
     }
 
     /// Attempts to connect with the provided credentials, and saves them if successful.
-    func testAndSaveConfiguration() {
+        func testAndSaveConfiguration(completion: @escaping (Bool) -> Void) {
         isLoading = true
         feedbackMessage = nil
 
         Task {
-            let newConfig = APIConfiguration(endpoint: endpoint, login: login)
+            let newConfig = APIConfiguration(endpoint: endpoint, apiKey: apiKey)
 
             do {
-                // Create a temporary network service. This can throw if the URL is invalid.
-                let testNetworkService = try NetworkService(configuration: newConfig, password: password)
-
-                // Try to fetch tasks to validate the configuration.
+                let testNetworkService = try NetworkService(configuration: newConfig)
                 _ = try await testNetworkService.fetchTasks()
-
-                // If successful, save the configuration.
-                try configService.save(configuration: newConfig, password: password)
-
+                try configService.save(configuration: newConfig)
                 feedbackMessage = ("Configuration saved successfully!", false)
-
+                    completion(true)
             } catch {
-                // This will now catch both invalid URL errors and other connection errors.
                 print("error", error)
                 feedbackMessage = ("Connection failed: \(error)", true)
+                    completion(false)
             }
 
             isLoading = false
@@ -71,8 +69,7 @@ class SettingsViewModel: ObservableObject {
         do {
             try configService.clearConfiguration()
             self.endpoint = ""
-            self.login = ""
-            self.password = ""
+            self.apiKey = ""
             feedbackMessage = ("Configuration cleared.", false)
         } catch {
             feedbackMessage = ("Failed to clear configuration: \(error.localizedDescription)", true)

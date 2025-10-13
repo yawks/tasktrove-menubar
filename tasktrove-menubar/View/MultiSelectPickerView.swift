@@ -1,14 +1,6 @@
 import SwiftUI
+import Foundation
 
-// 1. Protocol for items that can be displayed in the picker
-protocol SelectableItem: Identifiable, Hashable {
-    var id: UUID { get }
-    var name: String { get }
-    var color: String { get }
-}
-
-// 2. Make existing models conform to the protocol
-// Conformance is now handled in the model files directly.
 
 
 // Custom ToggleStyle for checkmark lists
@@ -31,11 +23,11 @@ struct CheckmarkToggleStyle: ToggleStyle {
 }
 
 // 3. The custom multi-select picker view
-struct MultiSelectPickerView<Item: SelectableItem & Hashable>: View {
+struct MultiSelectPickerView<Item: SelectableItem>: View {
     let title: String
     let items: [Item]
     let iconName: String
-    @Binding var selections: Set<UUID>
+    @Binding var selections: Set<String>
     @Environment(\.presentationMode) var presentationMode
 
     var body: some View {

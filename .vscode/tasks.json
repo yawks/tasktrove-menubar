@@ -1,0 +1,24 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "xcodebuild: build Debug",
+      "type": "shell",
+      "command": "xcodebuild",
+      "args": [
+        "-project",
+        "tasktrove-menubar.xcodeproj",
+        "-scheme",
+        "tasktrove-menubar",
+        "-configuration",
+        "Debug",
+        "CONFIGURATION_BUILD_DIR=${workspaceFolder}/build/Debug"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

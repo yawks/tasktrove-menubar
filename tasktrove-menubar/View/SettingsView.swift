@@ -1,10 +1,22 @@
 import SwiftUI
 
 struct SettingsView: View {
+    var prefillConfig: (endpoint: String, apiKey: String)? = nil
+    var onClose: (() -> Void)? = nil
     @StateObject private var viewModel = SettingsViewModel()
 
     var body: some View {
         VStack(spacing: 20) {
+            // Préremplir si besoin (reconnexion après 403)
+            if let config = prefillConfig {
+                Color.clear.onAppear {
+                    // Only prefill if the current values differ to avoid unnecessary updates/reloading
+                    if viewModel.endpoint != config.endpoint ||
+                        viewModel.apiKey != config.apiKey {
+                        viewModel.prefill(endpoint: config.endpoint, apiKey: config.apiKey)
+                    }
+                }
+            }
             Text("API Configuration")
                 .font(.title)
 
@@ -12,10 +24,7 @@ struct SettingsView: View {
                 TextField("API Endpoint (e.g., https://api.example.com/api)", text: $viewModel.endpoint)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                TextField("Login", text: $viewModel.login)
-                    .textFieldStyle(RoundedBorderTextFieldStyle())
-
-                SecureField("Password", text: $viewModel.password)
+                TextField("Clé API (Bearer Token)", text: $viewModel.apiKey)
                     .textFieldStyle(RoundedBorderTextFieldStyle())
             }
 
@@ -32,20 +41,32 @@ struct SettingsView: View {
                 }
 
                 Spacer()
+                Button("Cancel") {
+                    onClose?()
+                }
+                .keyboardShortcut(.cancelAction)
 
                 Button("Clear") {
                     viewModel.clearConfiguration()
+                    onClose?()
                 }
+                .focusable()
+                .accessibilityLabel("Clear configuration")
                 .foregroundColor(.red)
 
                 Button("Test & Save") {
-                    viewModel.testAndSaveConfiguration()
+                    viewModel.testAndSaveConfiguration { _ in }
+                    onClose?()
                 }
+                .focusable()
+                .accessibilityLabel("Test and save configuration")
                 .disabled(viewModel.isLoading)
+                .keyboardShortcut(.defaultAction)
             }
         }
         .padding(30)
         .frame(width: 450)
+        .focusSection()
     }
 }
 

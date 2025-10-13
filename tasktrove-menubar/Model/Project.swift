@@ -1,17 +1,18 @@
 import Foundation
 
-struct Project: Codable, Identifiable, Hashable, Equatable, SelectableItem {
-    let id: UUID
+struct Project: Codable, Hashable, Equatable, SelectableItem {
+    let id: String
     let name: String
     let slug: String
     let color: String
-    let shared: Bool
-    let sections: [Section]
-    let taskOrder: [UUID]?
+    // `shared` and `sections` can be omitted by the API -> make optional to be tolerant
+    let shared: Bool?
+    let sections: [Section]?
+    let taskOrder: [String]?
 }
 
 struct Section: Codable, Identifiable, Hashable, Equatable {
-    let id: UUID
+    let id: String
     let name: String
     let color: String
 }

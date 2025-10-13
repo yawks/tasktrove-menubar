@@ -4,13 +4,11 @@ import Combine
 /// Represents the configuration needed to connect to the API.
 struct APIConfiguration: Equatable {
     var endpoint: String
-    var login: String
-    // The password is not part of the main struct for security reasons,
-    // as it's handled directly by the Keychain.
+    var apiKey: String
 }
 
 /// A service to manage loading and saving the API configuration.
-/// It uses UserDefaults for non-sensitive data and Keychain for the password.
+/// It uses UserDefaults for non-sensitive data.
 class ConfigurationService: ObservableObject {
 
     static let shared = ConfigurationService()
@@ -19,11 +17,10 @@ class ConfigurationService: ObservableObject {
     @Published var isConfigured: Bool = false
 
     private let userDefaults = UserDefaults.standard
-    private let keychain = KeychainHelper.standard
+    // KeychainHelper is no longer used.
 
     private let endpointKey = "api_endpoint"
-    private let loginKey = "api_login"
-    private let passwordAccountKey = "api_password"
+    private let apiKeyKey = "api_key"
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -40,11 +37,11 @@ class ConfigurationService: ObservableObject {
     /// Loads the configuration from UserDefaults and Keychain.
     func load() {
         let endpoint = userDefaults.string(forKey: endpointKey) ?? ""
-        let login = userDefaults.string(forKey: loginKey) ?? ""
+        let apiKey = userDefaults.string(forKey: apiKeyKey) ?? ""
 
         // Only create a configuration object if the essential parts exist.
-        if !endpoint.isEmpty && !login.isEmpty {
-            self.configuration = APIConfiguration(endpoint: endpoint, login: login)
+        if !endpoint.isEmpty && !apiKey.isEmpty {
+            self.configuration = APIConfiguration(endpoint: endpoint, apiKey: apiKey)
         } else {
             self.configuration = nil
         }
@@ -54,29 +51,18 @@ class ConfigurationService: ObservableObject {
     /// - Parameters:
     ///   - configuration: The API configuration to save.
     ///   - password: The password to save securely in the Keychain.
-    func save(configuration: APIConfiguration, password: String) throws {
+    func save(configuration: APIConfiguration) throws {
         userDefaults.set(configuration.endpoint, forKey: endpointKey)
-        userDefaults.set(configuration.login, forKey: loginKey)
-
-        // Only save the password if it's not empty.
-        if !password.isEmpty {
-            try keychain.save(password, for: passwordAccountKey)
-        }
-
-        // Update the published property to reflect the change immediately.
+        userDefaults.set(configuration.apiKey, forKey: apiKeyKey)
         self.configuration = configuration
     }
 
-    /// Retrieves the password from the Keychain.
-    func getPassword() -> String? {
-        return try? keychain.load(for: passwordAccountKey)
-    }
+
 
     /// Deletes all saved configuration data.
     func clearConfiguration() throws {
         userDefaults.removeObject(forKey: endpointKey)
-        userDefaults.removeObject(forKey: loginKey)
-        try keychain.delete(for: passwordAccountKey)
+        userDefaults.removeObject(forKey: apiKeyKey)
         self.configuration = nil
     }
 }
