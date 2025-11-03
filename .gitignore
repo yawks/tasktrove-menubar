@@ -1,0 +1,54 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode
+/build/
+/DerivedData/
+xcuserdata/
+*.xcuserdatad
+*.xcuserdata
+*.xcscmblueprint
+*.xcuserstate
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+
+# Swift Package Manager
+/.build
+/.swiftpm
+Package.resolved
+
+# CocoaPods
+/Pods/
+Podfile.lock
+
+# Carthage
+/Carthage/Build/
+
+# Xcode archives
+*.xcarchive
+
+# Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# App bundles and dSYMs
+*.app
+*.app.dSYM
+*.dSYM
+
+# Distribution/staging
+/dist/
+/dist/staging/
+
+# Editor directories
+.idea/
+.vscode/
+*.swp
+
+# Other
+.DS_Store
