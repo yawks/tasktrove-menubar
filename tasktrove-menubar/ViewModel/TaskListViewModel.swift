@@ -21,7 +21,7 @@ enum FilterCategory: String, CaseIterable, Identifiable {
 
 @MainActor
 class TaskListViewModel: ObservableObject {
-
+    
     // MARK: - Date Parsing Helpers
     // Reuse these formatters to avoid recreating them for each task
     private static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
@@ -372,7 +372,6 @@ class TaskListViewModel: ObservableObject {
         Task {
             do {
                 try await networkService.updateTasks([diff])
-                print("Successfully updated task \(String(describing: modifiedTask.id)).")
                 if let id = modifiedTask.id { self.dirtyTaskIDs.remove(id) }
             } catch {
                 errorMessage = NSLocalizedString("error_update_failed", comment: "Error message for network update failure")
@@ -431,7 +430,7 @@ class TaskListViewModel: ObservableObject {
         if let id = modified.id { diff["id"] = id }
 
         if original.title != modified.title {
-                diff["title"] = modified.title
+            diff["title"] = modified.title
         }
         if original.description != modified.description {
             diff["description"] = modified.description ?? NSNull()
@@ -443,7 +442,14 @@ class TaskListViewModel: ObservableObject {
             diff["priority"] = modified.priority ?? NSNull()
         }
         if original.dueDate != modified.dueDate {
-            diff["dueDate"] = modified.dueDate ?? NSNull()
+            // Convert ISO8601 format (2025-10-30T23:00:00Z) to simple date (2025-10-30) for API
+            if let dueDateString = modified.dueDate {
+                // Extract only the date portion (YYYY-MM-DD)
+                let components = dueDateString.split(separator: "T")
+                diff["dueDate"] = String(components.first ?? "")
+            } else {
+                diff["dueDate"] = NSNull()
+            }
         }
         if original.projectId != modified.projectId {
             diff["projectId"] = modified.projectId ?? NSNull()
@@ -505,7 +511,6 @@ class TaskListViewModel: ObservableObject {
         Task {
             do {
                 try await networkService.updateTasks(diffs)
-                print("Successfully updated \(diffs.count) tasks.")
                 for id in taskIDsToUpdate {
                     self.dirtyTaskIDs.remove(id)
                 }
