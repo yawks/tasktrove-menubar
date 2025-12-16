@@ -372,11 +372,14 @@ struct TaskRowView: View {
         return dateFormatter.date(from: string)
     }
 
-    // Helper to convert Date to ISO8601 string
+    // Helper to convert Date to yyyy-MM-dd string format for API (dueDate)
     private func isoString(from date: Date) -> String {
-        let isoFormatter = ISO8601DateFormatter()
-        isoFormatter.formatOptions = [.withInternetDateTime]
-        return isoFormatter.string(from: date)
+        let dateFormatter = DateFormatter()
+        dateFormatter.calendar = Calendar(identifier: .gregorian)
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        return dateFormatter.string(from: date)
     }
 
     // MARK: - Inline Editing Methods

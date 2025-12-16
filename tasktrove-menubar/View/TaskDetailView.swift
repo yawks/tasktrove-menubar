@@ -323,7 +323,7 @@ struct TaskDetailView: View {
                         TextField("Add a comment...", text: $newCommentText)
                         Button("Add") {
                             if !newCommentText.isEmpty {
-                                let newComment = Comment(id: UUID().uuidString, content: newCommentText, createdAt: isoString(from: Date()))
+                                let newComment = Comment(id: UUID().uuidString, content: newCommentText, createdAt: isoStringForComment(from: Date()))
                                 if task.comments == nil {
                                     task.comments = [newComment]
                                 } else {
@@ -396,7 +396,18 @@ struct TaskDetailView: View {
         return df.date(from: string)
     }
 
+    // Helper to convert Date to yyyy-MM-dd string format for API (dueDate)
     private func isoString(from date: Date) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.calendar = Calendar(identifier: .gregorian)
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.timeZone = TimeZone(secondsFromGMT: 0)
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        return dateFormatter.string(from: date)
+    }
+    
+    // Helper to convert Date to ISO8601 string for comments (createdAt)
+    private func isoStringForComment(from date: Date) -> String {
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime]
         return isoFormatter.string(from: date)

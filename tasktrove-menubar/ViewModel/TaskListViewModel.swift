@@ -46,6 +46,48 @@ class TaskListViewModel: ObservableObject {
         }
         return Self.dateOnlyFormatter.date(from: isoString)
     }
+    
+    /// Formats a Date to yyyy-MM-dd string format for API requests
+    private static func formatDateForAPI(_ date: Date) -> String {
+        return dateOnlyFormatter.string(from: date)
+    }
+    
+    /// Converts a date string (ISO8601 or yyyy-MM-dd) to yyyy-MM-dd format for API
+    private static func normalizeDateString(_ dateString: String?) -> String? {
+        guard let dateString = dateString, !dateString.isEmpty else { return nil }
+        
+        // If already in yyyy-MM-dd format, return as is
+        if dateString.count == 10 && dateString.split(separator: "-").count == 3 {
+            return dateString
+        }
+        
+        // Try to parse and reformat
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        if let date = isoFormatter.date(from: dateString) {
+            return dateOnlyFormatter.string(from: date)
+        }
+        
+        // Try with basic ISO8601
+        let basicIsoFormatter = ISO8601DateFormatter()
+        if let date = basicIsoFormatter.date(from: dateString) {
+            return dateOnlyFormatter.string(from: date)
+        }
+        
+        // Try parsing with dateOnlyFormatter
+        if let date = dateOnlyFormatter.date(from: dateString) {
+            return dateString
+        }
+        
+        // If all parsing fails, try to extract yyyy-MM-dd from the string
+        let components = dateString.split(separator: "T")
+        if let firstComponent = components.first, firstComponent.count == 10 {
+            return String(firstComponent)
+        }
+        
+        return nil
+    }
 
     // MARK: - Published Properties
 
@@ -114,7 +156,8 @@ class TaskListViewModel: ObservableObject {
             taskData["priority"] = priority
         }
         if let dueDate = task.dueDate {
-            taskData["dueDate"] = dueDate
+            // Normalize date to yyyy-MM-dd format for API
+            taskData["dueDate"] = Self.normalizeDateString(dueDate) ?? dueDate
         }
         if let projectId = task.projectId {
             taskData["projectId"] = projectId
@@ -442,11 +485,9 @@ class TaskListViewModel: ObservableObject {
             diff["priority"] = modified.priority ?? NSNull()
         }
         if original.dueDate != modified.dueDate {
-            // Convert ISO8601 format (2025-10-30T23:00:00Z) to simple date (2025-10-30) for API
-            if let dueDateString = modified.dueDate {
-                // Extract only the date portion (YYYY-MM-DD)
-                let components = dueDateString.split(separator: "T")
-                diff["dueDate"] = String(components.first ?? "")
+            // Normalize date to yyyy-MM-dd format for API
+            if let normalizedDate = Self.normalizeDateString(modified.dueDate) {
+                diff["dueDate"] = normalizedDate
             } else {
                 diff["dueDate"] = NSNull()
             }

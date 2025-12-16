@@ -5,14 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "swift",
+            "type": "lldb",
             "request": "launch",
-            "name": "Launch TaskTrove (swift)",
+            "name": "Launch TaskTrove (lldb)",
             "program": "${workspaceFolder}/build/Debug/tasktrove-menubar.app/Contents/MacOS/tasktrove-menubar",
             "args": [],
-            "env": {},
             "cwd": "${workspaceFolder}",
-            "preLaunchTask": "xcodebuild: build Debug"
+            "preLaunchTask": "xcodebuild: build Debug",
+            "console": "internalConsole",
+            "stopOnEntry": false
         },
         {
             "type": "lldb-dap",
@@ -20,7 +21,6 @@
             "name": "Launch TaskTrove (lldb-dap)",
             "program": "${workspaceFolder}/build/Debug/tasktrove-menubar.app/Contents/MacOS/tasktrove-menubar",
             "args": [],
-            "env": {},
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "xcodebuild: build Debug"
         }
