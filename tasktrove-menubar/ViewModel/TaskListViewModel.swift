@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 enum SortOption: String, CaseIterable, Identifiable {
     case defaultOrder = "Default"
@@ -75,11 +76,6 @@ class TaskListViewModel: ObservableObject {
             return dateOnlyFormatter.string(from: date)
         }
         
-        // Try parsing with dateOnlyFormatter
-        if let date = dateOnlyFormatter.date(from: dateString) {
-            return dateString
-        }
-        
         // If all parsing fails, try to extract yyyy-MM-dd from the string
         let components = dateString.split(separator: "T")
         if let firstComponent = components.first, firstComponent.count == 10 {
@@ -94,9 +90,11 @@ class TaskListViewModel: ObservableObject {
     @Published private(set) var allTasks: [TodoTask] = []
     @Published private(set) var allProjects: [Project] = []
     @Published private(set) var allLabels: [Label] = []
+    @Published private(set) var filteredTasksCache: [TodoTask] = []
 
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
+    @Published var isCacheStale = false
 
     // Filtering & Sorting criteria
     @Published var selectedProjectIDs = Set<String>()
@@ -117,12 +115,12 @@ class TaskListViewModel: ObservableObject {
     // MARK: - Computed Properties
 
     var totalPages: Int {
-        let totalItems = filteredTasks.count
+        let totalItems = filteredTasksCache.count
         return max(1, (totalItems + itemsPerPage - 1) / itemsPerPage)
     }
 
     var paginatedTasks: [TodoTask] {
-        let allFiltered = filteredTasks
+        let allFiltered = filteredTasksCache
         let startIndex = currentPage * itemsPerPage
         let endIndex = min(startIndex + itemsPerPage, allFiltered.count)
 
@@ -178,9 +176,7 @@ class TaskListViewModel: ObservableObject {
         }
     }
 
-    // ...existing code...
-
-    var filteredTasks: [TodoTask] {
+    private func computeFilteredTasks() -> [TodoTask] {
         var tasks: [TodoTask]
 
         // 1. Primary Filter based on the selected category
@@ -216,17 +212,9 @@ class TaskListViewModel: ObservableObject {
             tasks = allTasks.filter { $0.completed == true }
         }
 
-        print("[TaskListViewModel] after primary filter: \(tasks.count) tasks")
-
         // 2. Secondary Filters (Project and Labels)
         let hasProjects = !(allProjects.isEmpty)
         let hasLabels = !(allLabels.isEmpty)
-        if !hasProjects {
-            print("[TaskListViewModel] No projects loaded; disabling project filter.")
-        }
-        if !hasLabels {
-            print("[TaskListViewModel] No labels loaded; disabling label filter.")
-        }
         if filterCategory != .inbox && hasProjects { // "Inbox" is for tasks without a project.
             tasks = filterTasksByProject(tasks)
         }
@@ -251,6 +239,18 @@ class TaskListViewModel: ObservableObject {
         return tasks
     }
 
+    private func refreshFilteredCacheIfNeeded(animated: Bool = true) {
+        let newFiltered = computeFilteredTasks()
+        guard newFiltered != filteredTasksCache else { return }
+        if animated {
+            withAnimation(.default) {
+                filteredTasksCache = newFiltered
+            }
+        } else {
+            filteredTasksCache = newFiltered
+        }
+    }
+
     // MARK: - Private Properties
 
     private let networkService: NetworkServiceProtocol
@@ -267,6 +267,8 @@ class TaskListViewModel: ObservableObject {
         loadFromCache()
         loadSettings()
 
+        self.refreshFilteredCacheIfNeeded(animated: false)
+
         setupDebouncer()
 
         // Fetch fresh data when the view model is created
@@ -278,6 +280,7 @@ class TaskListViewModel: ObservableObject {
             .sink { [weak self] ids in
                 SettingsService.shared.selectedProjectIDs = ids
                 self?.resetPagination()
+                self?.refreshFilteredCacheIfNeeded()
             }
             .store(in: &cancellables)
 
@@ -286,6 +289,7 @@ class TaskListViewModel: ObservableObject {
             .sink { [weak self] ids in
                 SettingsService.shared.selectedLabelIDs = ids
                 self?.resetPagination()
+                self?.refreshFilteredCacheIfNeeded()
             }
             .store(in: &cancellables)
 
@@ -294,6 +298,7 @@ class TaskListViewModel: ObservableObject {
             .sink { [weak self] option in
                 SettingsService.shared.sortOption = option
                 self?.resetPagination()
+                self?.refreshFilteredCacheIfNeeded()
             }
             .store(in: &cancellables)
 
@@ -302,6 +307,7 @@ class TaskListViewModel: ObservableObject {
             .sink { [weak self] category in
                 SettingsService.shared.filterCategory = category
                 self?.resetPagination()
+                self?.refreshFilteredCacheIfNeeded()
             }
             .store(in: &cancellables)
     }
@@ -312,58 +318,56 @@ class TaskListViewModel: ObservableObject {
     @Published var lastAuthConfig: (endpoint: String, apiKey: String)? = nil
 
     func fetchData() {
+        // Immediately load cached data for instant UI display
+        loadFromCache()
+        
         guard !isLoading else { return }
 
         isLoading = true
         errorMessage = nil
 
         Task {
+            self.isCacheStale = true
+            defer {
+                self.isCacheStale = false
+                self.isLoading = false
+            }
             do {
                 let response = try await networkService.fetchTasks()
-
-                // If tasks is nil or empty, ignore updating tasks to avoid clobbering cache
                 let serverTasks = response.tasks ?? []
-                guard !serverTasks.isEmpty else {
-                    print("Received an empty or missing task list from the server. Ignoring to protect cache.")
-                    self.isLoading = false
-                    return
-                }
-
-                // If we get here, the response contains tasks.
-                SettingsService.shared.cachedAPIResponse = response
-                let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id ?? "") }
-                let dirtyTasksByID = Dictionary(uniqueKeysWithValues: dirtyTasks.map { ($0.id, $0) })
-
-                let mergedTasks = serverTasks.map { serverTask in
-                    return dirtyTasksByID[serverTask.id] ?? serverTask
-                }
-
-                self.allTasks = mergedTasks
-
-                // Fetch projects and labels from their endpoints
                 async let fetchedProjects = (networkService as? NetworkService)?.fetchProjects()
                 async let fetchedLabels = (networkService as? NetworkService)?.fetchLabels()
                 let projects = await (try? fetchedProjects) ?? []
                 let labels = await (try? fetchedLabels) ?? []
-                self.allProjects = projects
-                self.allLabels = labels
 
-                print("[TaskListViewModel] allTasks count after fetch: \(self.allTasks.count)")
-                for t in self.allTasks.prefix(5) {
-                    let idStr = t.id ?? "nil"
-                    print("  - id: \(idStr), title: \(t.title)")
-                }
-                print("[TaskListViewModel] filteredTasks count: \(self.filteredTasks.count)")
-                for t in self.filteredTasks.prefix(5) {
-                    let idStr = t.id ?? "nil"
-                    print("  - id: \(idStr), title: \(t.title)")
-                }
-                print("[TaskListViewModel] paginatedTasks count: \(self.paginatedTasks.count)")
-                for t in self.paginatedTasks.prefix(5) {
-                    let idStr = t.id ?? "nil"
-                    print("  - id: \(idStr), title: \(t.title)")
-                }
+                if serverTasks != self.allTasks || projects != self.allProjects || labels != self.allLabels {
+                    // When caching the API response, ensure all three are included.
+                    SettingsService.shared.cachedAPIResponse = APIResponse(tasks: serverTasks, projects: projects, labels: labels, projectGroups: nil, labelGroups: nil, version: nil)
+                    
+                    let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id ?? "") }
+                    let dirtyTasksByID = Dictionary(uniqueKeysWithValues: dirtyTasks.map { ($0.id, $0) })
+                    let mergedTasks = serverTasks.map { serverTask in dirtyTasksByID[serverTask.id] ?? serverTask }
+                    self.allTasks = mergedTasks
 
+                    // Only update projects if non-empty, else retain cached.
+                    if !projects.isEmpty {
+                        self.allProjects = projects
+                    }
+                    // Only update labels if non-empty, else retain cached.
+                    if !labels.isEmpty {
+                        self.allLabels = labels
+                    }
+                    
+                    self.refreshFilteredCacheIfNeeded()
+                } else {
+                    // Update projects and labels only if non-empty, do not refresh filteredTasksCache otherwise.
+                    if !projects.isEmpty {
+                        self.allProjects = projects
+                    }
+                    if !labels.isEmpty {
+                        self.allLabels = labels
+                    }
+                }
             } catch let error as NetworkService.AuthError {
                 if case .forbidden = error {
                     let configService = ConfigurationService.shared
@@ -379,8 +383,6 @@ class TaskListViewModel: ObservableObject {
                 // If it's a decoding error, the NetworkService already printed the raw JSON and error; we just surface a message
                 // Do not forcibly present settings for generic network/decode errors to avoid wiping the UI.
             }
-
-            self.isLoading = false
         }
     }
 
@@ -516,8 +518,8 @@ class TaskListViewModel: ObservableObject {
     }
 
     func loadSettings() {
-    sortOption = SettingsService.shared.sortOption
-    filterCategory = SettingsService.shared.filterCategory
+        sortOption = SettingsService.shared.sortOption
+        filterCategory = SettingsService.shared.filterCategory
         selectedProjectIDs = SettingsService.shared.selectedProjectIDs
         selectedLabelIDs = SettingsService.shared.selectedLabelIDs
     }
@@ -547,7 +549,7 @@ class TaskListViewModel: ObservableObject {
             return
         }
 
-    let taskIDsToUpdate = tasks.compactMap { $0.id }
+        let taskIDsToUpdate = tasks.compactMap { $0.id }
 
         Task {
             do {
@@ -584,13 +586,13 @@ class TaskListViewModel: ObservableObject {
     // MARK: - Computed Properties for UI
 
     var selectedProjects: [Project] {
-    let projectsByID = Dictionary(uniqueKeysWithValues: allProjects.map { ($0.id, $0) })
-    return selectedProjectIDs.compactMap { projectsByID[$0] }
+        let projectsByID = Dictionary(uniqueKeysWithValues: allProjects.map { ($0.id, $0) })
+        return selectedProjectIDs.compactMap { projectsByID[$0] }
     }
 
     var selectedLabels: [Label] {
-    let labelsByID = Dictionary(uniqueKeysWithValues: allLabels.map { ($0.id, $0) })
-    return selectedLabelIDs.compactMap { labelsByID[$0] }
+        let labelsByID = Dictionary(uniqueKeysWithValues: allLabels.map { ($0.id, $0) })
+        return selectedLabelIDs.compactMap { labelsByID[$0] }
     }
 
 
@@ -612,3 +614,4 @@ class TaskListViewModel: ObservableObject {
         return allLabels.filter { taskLabelSet.contains($0.id) }
     }
 }
+

@@ -52,3 +52,7 @@ playground.xcworkspace
 
 # Other
 .DS_Store
+
+
+#Ignore cursor AI rules
+.cursor/rules/codacy.mdc

@@ -14,7 +14,7 @@ extension TodoTask {
 }
 import Foundation
 
-struct TodoTask: Codable, Identifiable {
+struct TodoTask: Codable, Identifiable, Equatable {
     let id: String?
     var title: String
     var description: String?
@@ -33,6 +33,29 @@ struct TodoTask: Codable, Identifiable {
     var recurring: String?
     var recurringMode: String?
     var estimation: Int?
+}
+
+extension TodoTask {
+    static func == (lhs: TodoTask, rhs: TodoTask) -> Bool {
+        return lhs.id == rhs.id &&
+            lhs.title == rhs.title &&
+            lhs.description == rhs.description &&
+            lhs.completed == rhs.completed &&
+            lhs.priority == rhs.priority &&
+            lhs.dueDate == rhs.dueDate &&
+            lhs.dueTime == rhs.dueTime &&
+            lhs.projectId == rhs.projectId &&
+            lhs.sectionId == rhs.sectionId &&
+            lhs.labels == rhs.labels &&
+            lhs.subtasks == rhs.subtasks &&
+            lhs.comments == rhs.comments &&
+            lhs.attachments == rhs.attachments &&
+            lhs.createdAt == rhs.createdAt &&
+            lhs.completedAt == rhs.completedAt &&
+            lhs.recurring == rhs.recurring &&
+            lhs.recurringMode == rhs.recurringMode &&
+            lhs.estimation == rhs.estimation
+    }
 }
 
 struct TodoSubtask: Codable, Identifiable, Equatable {
