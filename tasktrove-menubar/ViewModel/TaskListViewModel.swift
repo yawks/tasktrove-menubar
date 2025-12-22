@@ -418,6 +418,7 @@ class TaskListViewModel: ObservableObject {
             do {
                 try await networkService.updateTasks([diff])
                 if let id = modifiedTask.id { self.dirtyTaskIDs.remove(id) }
+                await MainActor.run { self.fetchData() } // Rafraîchir après la mise à jour
             } catch {
                 errorMessage = NSLocalizedString("error_update_failed", comment: "Error message for network update failure")
             }
