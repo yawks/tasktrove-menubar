@@ -143,25 +143,19 @@ class TaskListViewModel: ObservableObject {
     }
 
     func createTask(_ task: TodoTask) async {
-        var taskData: [String: Any] = [
-                "title": task.title,
-            "comments": task.comments ?? []
-        ]
-        if let description = task.description, !description.isEmpty {
-            taskData["description"] = description
+        guard var taskData = task.asDictionary() else {
+            errorMessage = "Failed to prepare task data."
+            return
         }
-        if let priority = task.priority {
-            taskData["priority"] = priority
+
+        // Provide explicit fallback for recurringMode if missing, to satisfy API validation
+        if taskData["recurringMode"] == nil {
+            taskData["recurringMode"] = "dueDate"
         }
+
         if let dueDate = task.dueDate {
             // Normalize date to yyyy-MM-dd format for API
             taskData["dueDate"] = Self.normalizeDateString(dueDate) ?? dueDate
-        }
-        if let projectId = task.projectId {
-            taskData["projectId"] = projectId
-        }
-        if let labels = task.labels, !labels.isEmpty {
-            taskData["labels"] = labels
         }
 
         Task {

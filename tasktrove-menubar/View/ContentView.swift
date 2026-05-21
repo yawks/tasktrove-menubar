@@ -20,6 +20,8 @@ struct ContentView: View {
                         .font(.title2.bold())
 
                     Button("New") {
+                        let formatter = ISO8601DateFormatter()
+                        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
                         let newTask = TodoTask(
                             id: UUID().uuidString,
                             title: "",
@@ -34,10 +36,10 @@ struct ContentView: View {
                             subtasks: [],
                             comments: [],
                             attachments: [],
-                            createdAt: ISO8601DateFormatter().string(from: Date()),
+                            createdAt: formatter.string(from: Date()),
                             completedAt: nil,
                             recurring: nil,
-                            recurringMode: nil,
+                            recurringMode: "dueDate",
                             estimation: nil
                         )
                         viewModel.selectedTask = newTask

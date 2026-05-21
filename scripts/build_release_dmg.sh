@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Change to the directory containing the Xcode project (repository root)
+cd "$(dirname "$0")/.."
+
 # build_release_dmg.sh
 # Small helper script to build the Xcode project in Release and create a compressed DMG.
 # Usage examples:
