@@ -105,6 +105,7 @@ class TaskListViewModel: ObservableObject {
     // Navigation
     @Published var selectedTask: TodoTask?
     @Published var isLoadingDetail = false
+    @Published var isFiltersExpanded = false
 
 
     // Pagination
@@ -329,10 +330,14 @@ class TaskListViewModel: ObservableObject {
             do {
                 let response = try await networkService.fetchTasks()
                 let serverTasks = response.tasks ?? []
-                async let fetchedProjects = (networkService as? NetworkService)?.fetchProjects()
-                async let fetchedLabels = (networkService as? NetworkService)?.fetchLabels()
-                let projects = await (try? fetchedProjects) ?? []
-                let labels = await (try? fetchedLabels) ?? []
+                // Use projects/labels from the response (Vikunja bundles them in fetchTasks).
+                // For TaskTrove, also try the dedicated endpoints which may return fresher data.
+                var projects: [Project] = response.projects ?? []
+                var labels: [Label] = response.labels ?? []
+                if let ns = networkService as? NetworkService {
+                    if let p = try? await ns.fetchProjects(), !p.isEmpty { projects = p }
+                    if let l = try? await ns.fetchLabels(), !l.isEmpty { labels = l }
+                }
 
                 if serverTasks != self.allTasks || projects != self.allProjects || labels != self.allLabels {
                     // When caching the API response, ensure all three are included.

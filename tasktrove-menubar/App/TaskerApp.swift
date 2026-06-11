@@ -15,23 +15,11 @@ struct TaskerApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            // Using a Group to attach the onAppear modifier to the view's content
-            Group {
-                // Conditionally show SettingsView or ContentView
-                if configService.isConfigured, let viewModel = taskListViewModel {
-                    ContentView()
-                        .environmentObject(viewModel)
-                } else {
-                    SettingsView()
+            MenuBarWindowView(configService: configService, taskListViewModel: taskListViewModel)
+                .onAppear {
+                    setupServices()
+                    installRightClickFallback()
                 }
-            }
-            .onAppear {
-                // Initial setup when the app starts.
-                setupServices()
-                installRightClickFallback()
-            }
-            // Ensure the menu window can grow a bit to accommodate the larger list
-            .frame(minWidth: 450, maxWidth: 600, minHeight: 500, maxHeight: 550)
         } label: {
             // Show a SwiftUI Image for the visible menubar icon (reliable rendering)
             // and overlay a transparent AppKit view to intercept right-clicks.
@@ -54,7 +42,10 @@ struct TaskerApp: App {
         }
         .menuBarExtraStyle(.window)
         .onChange(of: configService.isConfigured) {
-            // React to configuration changes.
+            setupServices()
+        }
+        .onChange(of: configService.configuration) {
+            // Also react when the provider/endpoint/key changes without isConfigured toggling.
             setupServices()
         }
     }
@@ -68,7 +59,7 @@ struct TaskerApp: App {
             }
 
             do {
-                let networkService = try NetworkService(configuration: config)
+                let networkService = try NetworkServiceFactory.make(configuration: config)
                 self.taskListViewModel = TaskListViewModel(networkService: networkService)
             } catch {
                 // If creating the service fails (e.g., invalid URL), clear the bad config.
@@ -246,5 +237,35 @@ final class ClickableImageView: NSView {
 
     @objc private func quitApp(_ sender: Any?) {
         NSApplication.shared.terminate(nil)
+    }
+}
+
+// MARK: - Menu Bar Window Wrapper Views
+struct MenuBarWindowView: View {
+    @ObservedObject var configService: ConfigurationService
+    let taskListViewModel: TaskListViewModel?
+
+    var body: some View {
+        if configService.isConfigured, let viewModel = taskListViewModel {
+            ObservedMenuBarView(viewModel: viewModel)
+        } else {
+            SettingsView()
+                .frame(minWidth: 450, maxWidth: 600, minHeight: 500, maxHeight: 550)
+        }
+    }
+}
+
+struct ObservedMenuBarView: View {
+    @ObservedObject var viewModel: TaskListViewModel
+
+    var body: some View {
+        ContentView()
+            .environmentObject(viewModel)
+            .frame(
+                minWidth: 450,
+                maxWidth: 600,
+                minHeight: viewModel.isFiltersExpanded ? 640 : 500,
+                maxHeight: viewModel.isFiltersExpanded ? 690 : 550
+            )
     }
 }

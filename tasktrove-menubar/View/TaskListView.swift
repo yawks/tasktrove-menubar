@@ -6,14 +6,13 @@ struct TaskListView: View {
     
     // Track reported row heights
     @State private var reportedRowHeights: [CGFloat] = []
-    // Track available list height
+    // Track available list height (height allocated to TaskListView by SwiftUI, header/footer already excluded)
     @State private var availableHeight: CGFloat = 600
-    // Track the first observed available height to avoid later layout expansions hiding the header
+    // Lock to the first observed height to avoid layout oscillation
     @State private var firstAvailableHeight: CGFloat? = nil
     // Computed exact height for the list so we don't leave a gap after the last row
     @State private var computedListHeight: CGFloat = 300
-    // No per-row stretching: we'll use measured median row height for sizing
-    // Per-row height to apply so content fills the computedListHeight exactly
+    // Per-row height; may be stretched to fill remaining space
     @State private var perRowHeight: CGFloat? = nil
     // Debug state (visible only in DEBUG builds)
     @State private var lastMedian: CGFloat = 0
@@ -21,13 +20,6 @@ struct TaskListView: View {
     @State private var lastRawFit: CGFloat = 0
     @State private var lastFrac: CGFloat = 0
     @State private var lastUsableHeight: CGFloat = 0
-    @State private var lastReservedFooter: CGFloat = 0
-    // Measured header height (falls back to this estimate if not available)
-    @State private var measuredHeaderHeight: CGFloat? = nil
-    private let headerEstimate: CGFloat = 70
-    // Footer height estimates (collapsed vs expanded)
-    private let footerCollapsedEstimate: CGFloat = 40  // Bouton "Filters" simple
-    private let footerExpandedEstimate: CGFloat = 80   // Tous les filtres visibles
 
     var body: some View {
         VStack(spacing: 0) {
@@ -66,14 +58,6 @@ struct TaskListView: View {
                 }
             }
         )
-        // Listen for header height measurement from the parent view
-        .onPreferenceChange(HeaderHeightPreferenceKey.self) { value in
-            if let v = value, v > 0 {
-                measuredHeaderHeight = v
-                updateItemsPerPage()
-            }
-        }
-
         .onPreferenceChange(RowHeightPreferenceKey.self) { value in
             // Keep a small rolling sample of reported row heights
             reportedRowHeights.append(value)
@@ -90,13 +74,11 @@ struct TaskListView: View {
         }
         #if DEBUG
         .overlay(
-                VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .trailing, spacing: 2) {
                 Text("avail: \(String(format: "%.0f", availableHeight))")
                 Text("firstAvail: \(String(format: "%.0f", firstAvailableHeight ?? availableHeight))")
                 Text("median: \(String(format: "%.1f", lastMedian))")
                 Text("rawFit: \(String(format: "%.2f", lastRawFit)) frac: \(String(format: "%.2f", lastFrac))")
-                Text("headerEst: \(String(format: "%.0f", headerEstimate))")
-                Text("footerH: \(String(format: "%.0f", lastReservedFooter))")
                 Text("usable: \(String(format: "%.0f", lastUsableHeight))")
                 Text("items: \(lastComputedItems)")
                 Text("height: \(String(format: "%.0f", computedListHeight))")
@@ -113,64 +95,64 @@ struct TaskListView: View {
     }
 
     private func updateItemsPerPage() {
-        // Use the median reported row height (fallback to a sensible default)
         let defaultRowHeight: CGFloat = 64.0
+        let dividerThickness: CGFloat = 1.0
+
         let rowHeights = reportedRowHeights.isEmpty ? [defaultRowHeight] : reportedRowHeights
         let sorted = rowHeights.sorted()
-                    let median = sorted[sorted.count / 2]
-
-        // For calculating how many items fit, use a smaller row height estimate
-        // This avoids circular dependency where measured height depends on current item count
-        let calculationRowHeight: CGFloat = 48.0 // Optimistic estimate for space calculation
-        
-        // For display, use measured median if available, otherwise fallback
+        let median = sorted[sorted.count / 2]
         let displayRowHeight = (median.isFinite && median > 0) ? median : defaultRowHeight
         lastMedian = displayRowHeight
 
-        // Guard availableHeight; if it's invalid use a basic fallback derived from a fixed default
         guard availableHeight.isFinite && availableHeight > 0 else {
-            // If we don't know available height, pick a reasonable default page size
-            let fallbackItems = max(1, Int(floor(500.0 / calculationRowHeight))) // ~7
+            let fallbackItems = max(1, Int(floor(500.0 / displayRowHeight)))
             if viewModel.itemsPerPage != fallbackItems {
                 viewModel.itemsPerPage = fallbackItems
                 viewModel.resetPagination()
             }
-            // also set a sensible visual height
-            computedListHeight = CGFloat(viewModel.itemsPerPage) * calculationRowHeight
+            computedListHeight = CGFloat(viewModel.itemsPerPage) * displayRowHeight
             return
         }
 
-    // Use the first observed available height to avoid a second-pass expansion hiding header
-    let usableHeight = firstAvailableHeight ?? availableHeight
-    // Reserve the measured header and footer height if available, otherwise fall back to estimates
-    let reservedHeader = (measuredHeaderHeight != nil && measuredHeaderHeight! > 0) ? measuredHeaderHeight! : headerEstimate
-    let reservedFooter = isFiltersExpanded ? footerExpandedEstimate : footerCollapsedEstimate
-    let usableHeightClamped = max(0, usableHeight - reservedHeader - reservedFooter)
-    lastUsableHeight = usableHeightClamped
-    lastReservedFooter = reservedFooter
-    // Compute how many rows fit based on the consistent calculation height
-    let rawFit = usableHeightClamped / calculationRowHeight
-    // Use a more aggressive approach: fit as many items as possible in available space
-    // Round to nearest integer to maximize space usage
-    let computedItems = max(1, Int(round(rawFit)))
-    // We'll account for divider heights (1pt each) between rows when distributing height
-    let dividerThickness: CGFloat = 1.0
-    lastComputedItems = computedItems
-    lastRawFit = rawFit
-    lastFrac = rawFit - floor(rawFit)
+        // availableHeight is what SwiftUI allocated to TaskListView after the header and footer
+        // siblings already claimed their space. Do NOT subtract them again.
+        let usableHeightClamped = firstAvailableHeight ?? availableHeight
+        lastUsableHeight = usableHeightClamped
 
-            if viewModel.itemsPerPage != computedItems {
-                viewModel.itemsPerPage = computedItems
-                viewModel.resetPagination()
-            }
+        // floor() ensures we never claim more items fit than the measured height allows.
+        let rawFit = usableHeightClamped / displayRowHeight
+        let computedItems = max(1, Int(floor(rawFit)))
+        lastComputedItems = computedItems
+        lastRawFit = rawFit
+        lastFrac = rawFit - floor(rawFit)
 
-                // Always use natural row height and let ScrollView handle overflow
-                let totalDividerHeight = CGFloat(max(0, computedItems - 1)) * dividerThickness
-                let naturalHeight = CGFloat(computedItems) * displayRowHeight + totalDividerHeight
-                
-                // Use natural height, limited by max container height for scroll
-                computedListHeight = min(naturalHeight, min(usableHeightClamped, 900))
-                perRowHeight = displayRowHeight
+        if viewModel.itemsPerPage != computedItems {
+            viewModel.itemsPerPage = computedItems
+            viewModel.resetPagination()
+        }
+
+        // Use the actual task count on the current page for height/stretch computation.
+        // On the last page there may be fewer tasks than computedItems.
+        let actualTasks = viewModel.paginatedTasks.count
+        guard actualTasks > 0 else {
+            computedListHeight = min(CGFloat(computedItems) * displayRowHeight, usableHeightClamped)
+            perRowHeight = displayRowHeight
+            return
+        }
+
+        let dividers = CGFloat(max(0, actualTasks - 1)) * dividerThickness
+        let naturalContentHeight = CGFloat(actualTasks) * displayRowHeight + dividers
+        let emptySpace = usableHeightClamped - naturalContentHeight
+
+        // Stretch rows to fill the dead zone only when it is smaller than one row height.
+        // A larger gap means the last page has noticeably fewer tasks — don't stretch there.
+        if emptySpace > 0 && emptySpace < displayRowHeight {
+            perRowHeight = (usableHeightClamped - dividers) / CGFloat(actualTasks)
+            computedListHeight = usableHeightClamped
+        } else {
+            perRowHeight = displayRowHeight
+            computedListHeight = min(naturalContentHeight, usableHeightClamped)
+        }
     }
 }
 
@@ -179,14 +161,6 @@ struct RowHeightPreferenceKey: PreferenceKey {
     static var defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
-    }
-}
-
-// Preference key for the header height measured in ContentView
-struct HeaderHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat? = nil
-    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) {
-        value = nextValue() ?? value
     }
 }
 
