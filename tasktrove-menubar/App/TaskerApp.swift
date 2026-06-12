@@ -264,8 +264,16 @@ struct ObservedMenuBarView: View {
             .frame(
                 minWidth: 450,
                 maxWidth: 600,
-                minHeight: viewModel.isFiltersExpanded ? 640 : 500,
+                minHeight: minHeight,
                 maxHeight: viewModel.isFiltersExpanded ? 690 : 550
             )
+    }
+
+    // When the pager is visible the window must be tall enough to fit it (header 81 +
+    // taskList 378 + pager~34 + footer 41 = 534).  Without this the pager is squeezed to
+    // 0 px by SwiftUI inside the 500 px base window.
+    private var minHeight: CGFloat {
+        if viewModel.isFiltersExpanded { return 640 }
+        return viewModel.totalPages > 1 ? 534 : 500
     }
 }

@@ -3,13 +3,13 @@ import SwiftUI
 struct TaskListView: View {
     @EnvironmentObject var viewModel: TaskListViewModel
     let isFiltersExpanded: Bool // État des filtres pour ajuster la hauteur du footer
-    
+
     // Track reported row heights
     @State private var reportedRowHeights: [CGFloat] = []
     // Track available list height (height allocated to TaskListView by SwiftUI, header/footer already excluded)
     @State private var availableHeight: CGFloat = 600
-    // Lock to the first observed height to avoid layout oscillation
-    @State private var firstAvailableHeight: CGFloat? = nil
+    // Guard: skip updateItemsPerPage until onAppear has provided a real geometry measurement
+    @State private var hasAppeared = false
     // Computed exact height for the list so we don't leave a gap after the last row
     @State private var computedListHeight: CGFloat = 300
     // Per-row height; may be stretched to fill remaining space
@@ -40,20 +40,23 @@ struct TaskListView: View {
             }
         }
     // Apply a min/max height so the list grows up to usableHeight but doesn't force a fixed height
-    .frame(minHeight: computedListHeight, maxHeight: min(firstAvailableHeight ?? availableHeight, 900))
+    .frame(minHeight: computedListHeight, maxHeight: min(viewModel.firstAvailableHeight ?? availableHeight, 900))
         // Measure available height for the container and compute itemsPerPage
         .background(
             GeometryReader { geo in
                 Color.clear.onAppear {
                     availableHeight = geo.size.height
-                    if firstAvailableHeight == nil {
-                        firstAvailableHeight = geo.size.height
+                    hasAppeared = true
+                    if viewModel.firstAvailableHeight == nil && !isFiltersExpanded {
+                        viewModel.firstAvailableHeight = geo.size.height
                     }
                     updateItemsPerPage()
                 }
                 .onChange(of: geo.size.height) { _, newH in
                     availableHeight = newH
-                    // Do not update firstAvailableHeight after initial measurement to avoid layout jumps
+                    if viewModel.firstAvailableHeight == nil && !isFiltersExpanded {
+                        viewModel.firstAvailableHeight = newH
+                    }
                     updateItemsPerPage()
                 }
             }
@@ -62,26 +65,41 @@ struct TaskListView: View {
             // Keep a small rolling sample of reported row heights
             reportedRowHeights.append(value)
             if reportedRowHeights.count > 20 { reportedRowHeights.removeFirst() }
+            // Skip until onAppear has provided a real geometry measurement (avoids using
+            // the default availableHeight=600 before the window is measured).
+            guard hasAppeared else { return }
             updateItemsPerPage()
         }
         // Recalculate when the number of tasks changes
-        .onChange(of: viewModel.paginatedTasks.count) { _, _ in
+        .onChange(of: viewModel.paginatedTasks.count) { old, new in
+            print("🟡 [TaskListView] paginatedTasks.count \(old)→\(new) filtered=\(viewModel.filteredTasksCache.count) items=\(viewModel.itemsPerPage) pages=\(viewModel.totalPages)")
+            updateItemsPerPage()
+        }
+        // Recalculate when totalPages changes so pagerReservation is applied immediately
+        // (paginatedTasks.count stays the same when going from 1→2 pages, so this is needed)
+        .onChange(of: viewModel.totalPages) { old, new in
+            print("🟡 [TaskListView] totalPages \(old)→\(new) filtered=\(viewModel.filteredTasksCache.count) items=\(viewModel.itemsPerPage) firstAvail=\(viewModel.firstAvailableHeight.map{Int($0)} ?? -1) avail=\(Int(availableHeight))")
             updateItemsPerPage()
         }
         // Recalculate when filter expansion state changes
-        .onChange(of: isFiltersExpanded) { _, _ in
+        .onChange(of: isFiltersExpanded) { _, newExpanded in
+            print("🟡 [TaskListView] isFiltersExpanded→\(newExpanded) firstAvail=\(viewModel.firstAvailableHeight.map{Int($0)} ?? -1) avail=\(Int(availableHeight))")
+            if !newExpanded && viewModel.firstAvailableHeight == nil {
+                viewModel.firstAvailableHeight = availableHeight
+                print("🟡 [TaskListView] isFiltersExpanded collapse → captured firstAvail=\(Int(availableHeight))")
+            }
             updateItemsPerPage()
         }
         #if DEBUG
         .overlay(
             VStack(alignment: .trailing, spacing: 2) {
                 Text("avail: \(String(format: "%.0f", availableHeight))")
-                Text("firstAvail: \(String(format: "%.0f", firstAvailableHeight ?? availableHeight))")
+                Text("firstAvail: \(String(format: "%.0f", viewModel.firstAvailableHeight ?? availableHeight))")
                 Text("median: \(String(format: "%.1f", lastMedian))")
                 Text("rawFit: \(String(format: "%.2f", lastRawFit)) frac: \(String(format: "%.2f", lastFrac))")
                 Text("usable: \(String(format: "%.0f", lastUsableHeight))")
-                Text("items: \(lastComputedItems)")
-                Text("height: \(String(format: "%.0f", computedListHeight))")
+                Text("items: \(lastComputedItems) filtered: \(viewModel.filteredTasksCache.count)")
+                Text("pages: \(viewModel.totalPages) height: \(String(format: "%.0f", computedListHeight))")
             }
             .font(.caption2)
             .padding(4)
@@ -95,6 +113,12 @@ struct TaskListView: View {
     }
 
     private func updateItemsPerPage() {
+        // When firstAvailableHeight hasn't been captured yet and filters are expanded,
+        // availableHeight reflects the taller expanded window (~518px instead of ~378px).
+        // Using it would set itemsPerPage too high (e.g. 8), swallowing all filtered tasks
+        // into one page and hiding the pager. Wait until the non-expanded height is known.
+        if viewModel.firstAvailableHeight == nil && isFiltersExpanded { return }
+
         let defaultRowHeight: CGFloat = 64.0
         let dividerThickness: CGFloat = 1.0
 
@@ -116,7 +140,7 @@ struct TaskListView: View {
 
         // availableHeight is what SwiftUI allocated to TaskListView after the header and footer
         // siblings already claimed their space. Do NOT subtract them again.
-        let usableHeightClamped = firstAvailableHeight ?? availableHeight
+        let usableHeightClamped = viewModel.firstAvailableHeight ?? availableHeight
         lastUsableHeight = usableHeightClamped
 
         // floor() ensures we never claim more items fit than the measured height allows.

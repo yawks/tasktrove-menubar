@@ -22,7 +22,7 @@ enum FilterCategory: String, CaseIterable, Identifiable {
 
 @MainActor
 class TaskListViewModel: ObservableObject {
-    
+
     // MARK: - Date Parsing Helpers
     // Reuse these formatters to avoid recreating them for each task
     private static let iso8601WithFractionalSeconds: ISO8601DateFormatter = {
@@ -47,41 +47,41 @@ class TaskListViewModel: ObservableObject {
         }
         return Self.dateOnlyFormatter.date(from: isoString)
     }
-    
+
     /// Formats a Date to yyyy-MM-dd string format for API requests
     private static func formatDateForAPI(_ date: Date) -> String {
         return dateOnlyFormatter.string(from: date)
     }
-    
+
     /// Converts a date string (ISO8601 or yyyy-MM-dd) to yyyy-MM-dd format for API
     private static func normalizeDateString(_ dateString: String?) -> String? {
         guard let dateString = dateString, !dateString.isEmpty else { return nil }
-        
+
         // If already in yyyy-MM-dd format, return as is
         if dateString.count == 10 && dateString.split(separator: "-").count == 3 {
             return dateString
         }
-        
+
         // Try to parse and reformat
         let isoFormatter = ISO8601DateFormatter()
         isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        
+
         if let date = isoFormatter.date(from: dateString) {
             return dateOnlyFormatter.string(from: date)
         }
-        
+
         // Try with basic ISO8601
         let basicIsoFormatter = ISO8601DateFormatter()
         if let date = basicIsoFormatter.date(from: dateString) {
             return dateOnlyFormatter.string(from: date)
         }
-        
+
         // If all parsing fails, try to extract yyyy-MM-dd from the string
         let components = dateString.split(separator: "T")
         if let firstComponent = components.first, firstComponent.count == 10 {
             return String(firstComponent)
         }
-        
+
         return nil
     }
 
@@ -106,6 +106,7 @@ class TaskListViewModel: ObservableObject {
     @Published var selectedTask: TodoTask?
     @Published var isLoadingDetail = false
     @Published var isFiltersExpanded = false
+    var firstAvailableHeight: CGFloat? = nil
 
 
     // Pagination
@@ -236,7 +237,9 @@ class TaskListViewModel: ObservableObject {
 
     private func refreshFilteredCacheIfNeeded(animated: Bool = true) {
         let newFiltered = computeFilteredTasks()
-        guard newFiltered != filteredTasksCache else { return }
+        guard newFiltered != filteredTasksCache else {
+            return
+        }
         if animated {
             withAnimation(.default) {
                 filteredTasksCache = newFiltered
@@ -275,7 +278,9 @@ class TaskListViewModel: ObservableObject {
             .sink { [weak self] ids in
                 SettingsService.shared.selectedProjectIDs = ids
                 self?.resetPagination()
-                self?.refreshFilteredCacheIfNeeded()
+                // @Published fires in willSet, before the property is actually set.
+                // Defer the refresh so self.selectedProjectIDs reflects the new value.
+                DispatchQueue.main.async { self?.refreshFilteredCacheIfNeeded() }
             }
             .store(in: &cancellables)
 
@@ -284,7 +289,7 @@ class TaskListViewModel: ObservableObject {
             .sink { [weak self] ids in
                 SettingsService.shared.selectedLabelIDs = ids
                 self?.resetPagination()
-                self?.refreshFilteredCacheIfNeeded()
+                DispatchQueue.main.async { self?.refreshFilteredCacheIfNeeded() }
             }
             .store(in: &cancellables)
 
@@ -293,7 +298,7 @@ class TaskListViewModel: ObservableObject {
             .sink { [weak self] option in
                 SettingsService.shared.sortOption = option
                 self?.resetPagination()
-                self?.refreshFilteredCacheIfNeeded()
+                DispatchQueue.main.async { self?.refreshFilteredCacheIfNeeded() }
             }
             .store(in: &cancellables)
 
@@ -302,7 +307,7 @@ class TaskListViewModel: ObservableObject {
             .sink { [weak self] category in
                 SettingsService.shared.filterCategory = category
                 self?.resetPagination()
-                self?.refreshFilteredCacheIfNeeded()
+                DispatchQueue.main.async { self?.refreshFilteredCacheIfNeeded() }
             }
             .store(in: &cancellables)
     }
@@ -315,7 +320,7 @@ class TaskListViewModel: ObservableObject {
     func fetchData() {
         // Immediately load cached data for instant UI display
         loadFromCache()
-        
+
         guard !isLoading else { return }
 
         isLoading = true
@@ -342,7 +347,7 @@ class TaskListViewModel: ObservableObject {
                 if serverTasks != self.allTasks || projects != self.allProjects || labels != self.allLabels {
                     // When caching the API response, ensure all three are included.
                     SettingsService.shared.cachedAPIResponse = APIResponse(tasks: serverTasks, projects: projects, labels: labels, projectGroups: nil, labelGroups: nil, version: nil)
-                    
+
                     let dirtyTasks = self.allTasks.filter { self.dirtyTaskIDs.contains($0.id ?? "") }
                     let dirtyTasksByID = Dictionary(uniqueKeysWithValues: dirtyTasks.map { ($0.id, $0) })
                     let mergedTasks = serverTasks.map { serverTask in dirtyTasksByID[serverTask.id] ?? serverTask }
@@ -356,7 +361,7 @@ class TaskListViewModel: ObservableObject {
                     if !labels.isEmpty {
                         self.allLabels = labels
                     }
-                    
+
                     self.refreshFilteredCacheIfNeeded()
                 } else {
                     // Update projects and labels only if non-empty, do not refresh filteredTasksCache otherwise.
